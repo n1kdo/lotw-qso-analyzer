@@ -6,7 +6,7 @@ script can collect the data from LoTW for you, optionally saving the ADIF.
 
 LICENSE:
 
-Copyright (c) 2017, Jeffrey B. Otterson, N1KDO
+Copyright (c) 2018, Jeffrey B. Otterson, N1KDO
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
