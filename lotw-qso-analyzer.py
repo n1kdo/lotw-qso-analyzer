@@ -31,13 +31,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 """
 
-import calendar
 import datetime
 import logging
 import re
 import time
-import urllib
-import urllib2
+import urllib.request, urllib.parse, urllib.error
+import urllib.request, urllib.error, urllib.parse
 import sys
 import matplotlib
 from matplotlib.dates import DateFormatter, YearLocator, MonthLocator
@@ -46,6 +45,11 @@ matplotlib.use('Agg')
 # Module import not at top of file.  Sorry, folks, that's how Matplotlib works.
 import matplotlib.pyplot as plt
 import matplotlib.backends.backend_agg as agg
+
+WIDTH_INCHES = 12
+HEIGHT_INCHES = 9
+FG = 'black'
+BG = 'white'
 
 plt.ioff()
 
@@ -75,17 +79,17 @@ def call_lotw(**params):
         adif_file_name = params.pop('filename')
         adif_file = open(adif_file_name, 'w')
     else:
-        adif_file_name = None
         adif_file = None
 
-    data = urllib.urlencode(params)
-    req = urllib2.Request(url + '?' + data)
-    response = urllib2.urlopen(req)
+    data = urllib.parse.urlencode(params)
+    req = urllib.request.Request(url + '?' + data)
+    response = urllib.request.urlopen(req)
     for line in response:
+        line = line.decode('utf-8')
         line = line.strip()
         if first_line:
             if 'ARRL Logbook of the World' not in line:
-                print line
+                print(line)
                 raise Exception('ADIF download failed: ' + line)
             first_line = False
         if adif_file is not None:
@@ -137,7 +141,7 @@ def adif_field(s):
                 fn = str(match.group(1)).lower()
                 return fn, payload
             else:
-                print title
+                print(title)
         else:
             return str(match.group(1)).lower(), None
     return None, None
@@ -171,9 +175,15 @@ def convert_qso_date(d):
     return datetime.datetime.strptime(d, '%Y%m%d').date()
 
 
+def input1(prompt):
+    print(prompt)
+    s = sys.stdin.readline()
+    return s
+
+
 def get_yes_no(prompt, default=None):
     while True:
-        yn = raw_input(prompt)
+        yn = input1(prompt)
         if len(yn):
             if yn[0] == 'y' or yn[0] == 'Y':
                 return True
@@ -187,8 +197,8 @@ def get_yes_no(prompt, default=None):
 def crunch_data(callsign, qso_list):
     #    print_csv_data = get_yes_no('Show CSV data for Excel [y/N] : ', False)
 
-    print
-    print '%5d total lotw QSOs' % len(qso_list)
+    print()
+    print('%5d total lotw QSOs' % len(qso_list))
     qso_list.sort(key=lambda q: q['qso_date'])
 
     dxcc_confirmed = {}
@@ -268,7 +278,7 @@ def crunch_data(callsign, qso_list):
             if first_date is None or qdate < first_date:
                 first_date = qdate
         else:
-            print 'DANGER WILL ROBINSON!'
+            print('DANGER WILL ROBINSON!')
 
         call = qso['call']
         if call not in unique_calls:
@@ -276,13 +286,13 @@ def crunch_data(callsign, qso_list):
         else:
             unique_calls[call].append(qso)
 
-    print '%5d dxcc entities confirmed' % len(dxcc_confirmed)
-    print '%5d days worked' % len(date_records)
-    print '%5d counted confirmed' % n_confirmed
-    print '%5d counted challenge' % n_challenge
-    print '%5d counted worked' % n_worked
-    print 'first date: ' + first_date.strftime('%Y-%m-%d')
-    print 'last date: ' + last_date.strftime('%Y-%m-%d')
+    print('%5d dxcc entities confirmed' % len(dxcc_confirmed))
+    print('%5d days worked' % len(date_records))
+    print('%5d counted confirmed' % n_confirmed)
+    print('%5d counted challenge' % n_challenge)
+    print('%5d counted worked' % n_worked)
+    print('first date: ' + first_date.strftime('%Y-%m-%d'))
+    print('last date: ' + last_date.strftime('%Y-%m-%d'))
 
     # now calculate running totals by date
     total_worked = 0
@@ -293,7 +303,7 @@ def crunch_data(callsign, qso_list):
 #    for band in BANDS:
 #        band_totals[band] = 0
 
-    for qdate in sorted(date_records.iterkeys()):
+    for qdate in sorted(date_records.keys()):
         counts = date_records[qdate]
         total_worked += counts['worked']
         total_confirmed += counts['confirmed']
@@ -307,25 +317,24 @@ def crunch_data(callsign, qso_list):
         counts['total_new_dxcc'] = total_new_dxcc
         counts['total_challenge'] = total_new_challenge
         date_records[qdate] = counts  # I think this is redundant.
-        if False:
-            print("%s  %5d  %5d  %5d  %5d  %5d  %5d  %5d  %5d") % (qdate.strftime('%Y-%m-%d'),
-                                                                   counts['worked'],
-                                                                   counts['confirmed'],
-                                                                   counts['total_worked'],
-                                                                   counts['total_confirmed'],
-                                                                   counts['new_dxcc'],
-                                                                   counts['total_new_dxcc'],
-                                                                   counts['challenge'],
-                                                                   counts['total_challenge'])
+#        print(("%s  %5d  %5d  %5d  %5d  %5d  %5d  %5d  %5d") % (qdate.strftime('%Y-%m-%d'),
+#                                                               counts['worked'],
+#                                                               counts['confirmed'],
+#                                                               counts['total_worked'],
+#                                                               counts['total_confirmed'],
+#                                                               counts['new_dxcc'],
+#                                                               counts['total_new_dxcc'],
+#                                                               counts['challenge'],
+#                                                               counts['total_challenge']))
 
     # top 20 most productive days
     number_of_top_days = 20
-    print
-    print 'Top %d days' % number_of_top_days
-    print
-    most_productive = sorted(date_records.values(), key=lambda counts: counts['worked'], reverse=True)
+    print()
+    print('Top %d days' % number_of_top_days)
+    print()
+    most_productive = sorted(list(date_records.values()), key=lambda counts: counts['worked'], reverse=True)
     for i in range(0, number_of_top_days):
-        print '%2d  %12s %5d' % (i+1, str(most_productive[i]['qdate']), most_productive[i]['worked'])
+        print('%2d  %12s %5d' % (i+1, str(most_productive[i]['qdate']), most_productive[i]['worked']))
 
     plot_cumulative_qsos(date_records, callsign + ' Cumulative QSOs', callsign + '_cumulative_qsos.png')
     plot_dxcc_qsos(date_records, callsign + ' DXCC QSOs', callsign + '_dxcc_qsos.png')
@@ -334,17 +343,17 @@ def crunch_data(callsign, qso_list):
     plot_qsos_band_counts(date_records, callsign + ' Confirmed Band Slots', callsign + '_slots.png')
 
     calls_by_qso = []
-    for call, qso_list in unique_calls.iteritems():
+    for call, qso_list in unique_calls.items():
         calls_by_qso.append((call, len(qso_list)))
     calls_by_qso = sorted(calls_by_qso, key=lambda count: count[1], reverse=True)
 
     # show top calls
     number_of_top_calls = 40
-    print
-    print 'Top %d calls' % number_of_top_calls
-    print
+    print()
+    print('Top %d calls' % number_of_top_calls)
+    print()
     for i in range(0, number_of_top_calls):
-        print "%2d %10s %3d" % (i+1, calls_by_qso[i][0], calls_by_qso[i][1])
+        print("%2d %10s %3d" % (i+1, calls_by_qso[i][0], calls_by_qso[i][1]))
 
 
 def compare_lists(qso_list, cards_list):
@@ -356,9 +365,9 @@ def compare_lists(qso_list, cards_list):
     for qso in cards_list:
         key = qso['call'] + '.' + qso['qso_date'] + '.' + qso['band'] + '.' + qso.get('app_lotw_modegroup')
         if not key in qsos:
-            print 'cant find a match for '
-            print qso
-            print
+            print('cant find a match for ')
+            print(qso)
+            print()
 
 
 def plot_cumulative_qsos(date_records, title, filename):
@@ -366,7 +375,7 @@ def plot_cumulative_qsos(date_records, title, filename):
     make the chart
     """
     data = [[], [], [], [], []]
-    for qdate in sorted(date_records.iterkeys()):
+    for qdate in sorted(date_records.keys()):
         counts = date_records[qdate]
         worked = counts['total_worked']
         confirmed = counts['total_confirmed']
@@ -379,8 +388,7 @@ def plot_cumulative_qsos(date_records, title, filename):
         data[4].append(worked - confirmed)
 
     logging.debug('make_plot(...,...,%s)', title)
-    WIDTH_INCHES = 12
-    HEIGHT_INCHES = 9
+
     fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout={'pad': 0.10}, facecolor='blue')
 
     if matplotlib.__version__[0] == '1':
@@ -428,17 +436,13 @@ def plot_dxcc_qsos(date_records, title, filename):
     total_dxcc_data = []
     total_challenge_data = []
 
-    for qdate in sorted(date_records.iterkeys()):
+    for qdate in sorted(date_records.keys()):
         counts = date_records[qdate]
         dates_data.append(qdate)
         total_dxcc_data.append(counts['total_new_dxcc'])
         total_challenge_data.append(counts['total_challenge'])
 
     logging.debug('make_plot(...,...,%s)', title)
-    WIDTH_INCHES = 12
-    HEIGHT_INCHES = 9
-    FG = 'black'
-    BG = 'white'
 
     fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout={'pad': 0.10}, facecolor='blue')
 
@@ -514,7 +518,7 @@ def plot_qsos_rate(date_records, title, filename):
     make the chart
     """
     data = [[], [], [], [], []]
-    for qdate in sorted(date_records.iterkeys()):
+    for qdate in sorted(date_records.keys()):
         counts = date_records[qdate]
 #        data[0].append(qdate)
 #        data[1].append(no_zero(counts['new_dxcc']))
@@ -533,8 +537,6 @@ def plot_qsos_rate(date_records, title, filename):
         data[4].append(no_zero(worked) if worked != confirmed and worked != challenge and worked != new_dxcc else None)
 
     logging.debug('make_plot(...,...,%s)', title)
-    WIDTH_INCHES = 12
-    HEIGHT_INCHES = 9
     fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout={'pad': 0.10}, facecolor='blue')
 
     if matplotlib.__version__[0] == '1':
@@ -586,15 +588,13 @@ def plot_qsos_band_rate(date_records, title, filename):
 
     data       = [[],   [],     [],    [],    [],     [],    [],    [],    [],    [],    []]
 
-    for qdate in sorted(date_records.iterkeys()):
+    for qdate in sorted(date_records.keys()):
         counts = date_records[qdate]
         data[0].append(qdate)
         for i in range(0, len(CHALLENGE_BANDS)):
             data[i+1].append(no_zero(counts[CHALLENGE_BANDS[i]]))
 
     logging.debug('make_plot(...,...,%s)', title)
-    WIDTH_INCHES = 12
-    HEIGHT_INCHES = 9
     fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout={'pad': 0.10}, facecolor='blue')
 
     if matplotlib.__version__[0] == '1':
@@ -636,10 +636,6 @@ def plot_qsos_band_counts(date_records, title, filename):
     """
     make the chart
     """
-    WIDTH_INCHES = 12
-    HEIGHT_INCHES = 9
-    FG = 'black'
-    BG = 'white'
 
     CHALLENGE_BANDS = ['160M', '80M', '40M', '30M', '20M',     '17M',     '15M',     '12M',     '10M',      '6M']
     colors =          [   'r',   'g',   'b',   'c',   'r', '#990099', '#ff6600', '#00ff00', '#663300', '#00ff99']
@@ -648,7 +644,7 @@ def plot_qsos_band_counts(date_records, title, filename):
     data       = [[],   [],     [],    [],    [],     [],    [],    [],    [],    [],    []]
     totals     = [ 0,    0,      0,     0,     0,      0,     0,     0,     0,     0,     0]
 
-    for qdate in sorted(date_records.iterkeys()):
+    for qdate in sorted(date_records.keys()):
         counts = date_records[qdate]
         data[0].append(qdate)
         for i in range(0, len(CHALLENGE_BANDS)):
@@ -713,48 +709,48 @@ def plot_qsos_band_counts(date_records, title, filename):
 
 
 def main():
-    print 'N1KDO\'s LoTWADIF analyzer version %s' % __version__
-    print
+    print('N1KDO\'s LoTW ADIF analyzer version %s' % __version__)
+    print()
     qso_list = None
     # qso_list = read_adif_file('n1kdo.adif')
     while qso_list is None:
-        print 'If you already have a downloaded ADIF data file from LoTW, that can be used,'
-        print 'otherwise, this program will get the data from LoTW for you, and can optionally'
-        print 'create an ADIF data file for subsequent analysis.'
-        print
+        print('If you already have a downloaded ADIF data file from LoTW, that can be used,')
+        print('otherwise, this program will get the data from LoTW for you, and can optionally')
+        print('create an ADIF data file for subsequent analysis.')
+        print()
         have_adif = get_yes_no('Do you have a LoTW ADIF file? [y/n] : ')
-        if (have_adif):
+        if have_adif:
             adif_file_name = ''
             try:
-                adif_file_name = raw_input('Enter the name of the ADIF file to use : ')
+                adif_file_name = input1('Enter the name of the ADIF file to use : ')
                 if adif_file_name == '':
                     continue
                 qso_list = read_adif_file(adif_file_name)
             except:
-                print 'Problem reading ADIF file %s' % adif_file_name
-                print
+                print('Problem reading ADIF file %s' % adif_file_name)
+                print()
             else:
                 break
         else:
-            mycall = raw_input('Please enter your LoTW callsign   : ')
-            password = raw_input('Please enter your LoTW password : ')
-            filename = raw_input('If you want to save this data for future analysis, enter the filename now : ')
+            mycall = input1('Please enter your LoTW callsign   : ')
+            password = input1('Please enter your LoTW password : ')
+            filename = input1('If you want to save this data for future analysis, enter the filename now : ')
             if filename == '':
                 filename = None
             try:
-                print 'please wait while your data is fetched from Logbook of The World.  This could take several minutes.'
+                print('please wait while your data is fetched from Logbook of The World.  This could take several minutes.')
                 qso_list = get_lotw_adif(mycall, password, filename)
-                print 'please wait while your data is crunched.'
+                print('please wait while your data is crunched.')
             except:
                 e = sys.exc_info()[0]
-                print 'Problem downloading from LoTW...' + e
-                print
+                print('Problem downloading from LoTW...' + e)
+                print()
             else:
                 break
 
-    print 'Crunching data...'
+    print('Crunching data...')
     crunch_data('N1KDO', qso_list)
-    print 'done.'
+    print('done.')
 
 if __name__ == '__main__':
     main()
