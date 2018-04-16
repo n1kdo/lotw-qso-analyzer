@@ -56,7 +56,7 @@ plt.ioff()
 __author__ = 'Jeffrey B. Otterson, N1KDO'
 __copyright__ = 'Copyright 2017 Jeffrey B. Otterson'
 __license__ = 'Simplified BSD'
-__version__ = '0.01'
+__version__ = '0.02'
 
 logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S',
                     level=logging.WARN)
@@ -85,7 +85,16 @@ def call_lotw(**params):
     req = urllib.request.Request(url + '?' + data)
     response = urllib.request.urlopen(req)
     for line in response:
-        line = line.decode('utf-8')
+        try:
+            line = line.decode('iso-8859-1')
+        except Exception as inst:
+            print()
+            print('...problem')
+            print(line)
+            e = sys.exc_info()[0]
+            print('Problem downloading from LoTW...' + e)
+            pass
+
         line = line.strip()
         if first_line:
             if 'ARRL Logbook of the World' not in line:
@@ -177,7 +186,8 @@ def convert_qso_date(d):
 
 def input1(prompt):
     print(prompt)
-    s = sys.stdin.readline()
+    s = input()
+    # s = sys.stdin.readline()
     return s
 
 
@@ -226,7 +236,7 @@ def crunch_data(callsign, qso_list):
                 confirmed = 1
                 mode = qso.get('app_lotw_modegroup')
                 country = qso.get('country')
-                if (qso_dxcc not in dxcc_confirmed):
+                if qso_dxcc not in dxcc_confirmed:
                     new_dxcc = 1
                     dxcc_confirmed[qso_dxcc] = {'COUNTRY': country,
                                                 'DXCC': qso_dxcc,
@@ -267,7 +277,8 @@ def crunch_data(callsign, qso_list):
                 counts['challenge'] += challenge
                 counts[qso_band] += challenge
             else:
-                counts = {'qdate': qdate, 'worked': 1, 'confirmed': confirmed, 'new_dxcc': new_dxcc, 'challenge': challenge}
+                counts = {'qdate': qdate, 'worked': 1, 'confirmed': confirmed,
+                          'new_dxcc': new_dxcc, 'challenge': challenge}
                 for band in BANDS:
                     counts[band] = 0
                 counts[qso_band] += challenge
@@ -329,6 +340,8 @@ def crunch_data(callsign, qso_list):
 
     # top 20 most productive days
     number_of_top_days = 20
+    if len(date_records) < number_of_top_days:
+        number_of_top_days = len(date_records)
     print()
     print('Top %d days' % number_of_top_days)
     print()
@@ -388,8 +401,8 @@ def plot_cumulative_qsos(date_records, title, filename):
         data[4].append(worked - confirmed)
 
     logging.debug('make_plot(...,...,%s)', title)
-
-    fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout={'pad': 0.10}, facecolor='blue')
+    # {'pad': 0.10}
+    fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True, facecolor='blue')
 
     if matplotlib.__version__[0] == '1':
         ax = fig.add_subplot(111, axis_bgcolor='white')
@@ -436,15 +449,15 @@ def plot_dxcc_qsos(date_records, title, filename):
     total_dxcc_data = []
     total_challenge_data = []
 
-    for qdate in sorted(date_records.keys()):
-        counts = date_records[qdate]
-        dates_data.append(qdate)
+    for qso_date in sorted(date_records.keys()):
+        counts = date_records[qso_date]
+        dates_data.append(qso_date)
         total_dxcc_data.append(counts['total_new_dxcc'])
         total_challenge_data.append(counts['total_challenge'])
 
     logging.debug('make_plot(...,...,%s)', title)
-
-    fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout={'pad': 0.10}, facecolor='blue')
+    # {'pad': 0.10}
+    fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True, facecolor='blue')
 
     if matplotlib.__version__[0] == '1':
         ax = fig.add_subplot(111, axis_bgcolor='white')
@@ -462,16 +475,16 @@ def plot_dxcc_qsos(date_records, title, filename):
     axb.set_ylim(0, 3500)
 
     lns1 = ax.plot_date(dates, total_dxcc_data, color='r',
-                 linestyle='-',
-                 marker='None',
-                 mew=0, markersize=5, label='DXCC')
+                        linestyle='-',
+                        marker='None',
+                        mew=0, markersize=5, label='DXCC')
     lns2 = axb.plot_date(dates, total_challenge_data, color='g',
-                 linestyle=':',
-                 marker='None',
-                 mew=0, markersize=5, label='Challenge')
+                         linestyle=':',
+                         marker='None',
+                         mew=0, markersize=5, label='Challenge')
     ax.grid(True)
 
-    ax.set_yticks([0,50,100,150,200,250,300,350])
+    ax.set_yticks([0, 50, 100, 150, 200, 250, 300, 350])
     ax.set_yticks([339], minor=True)
     ax.yaxis.set_minor_formatter(FormatStrFormatter('%d'))
 
@@ -537,7 +550,8 @@ def plot_qsos_rate(date_records, title, filename):
         data[4].append(no_zero(worked) if worked != confirmed and worked != challenge and worked != new_dxcc else None)
 
     logging.debug('make_plot(...,...,%s)', title)
-    fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout={'pad': 0.10}, facecolor='blue')
+    #{'pad': 0.10}
+    fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True, facecolor='blue')
 
     if matplotlib.__version__[0] == '1':
         ax = fig.add_subplot(111, axis_bgcolor='white')
@@ -582,7 +596,7 @@ def plot_qsos_band_rate(date_records, title, filename):
     """
     make the chart
     """
-    CHALLENGE_BANDS = ['160M', '80M', '40M', '30M', '20M',     '17M',     '15M',     '12M',     '10M',      '6M']
+    challenge_bands = ['160M', '80M', '40M', '30M', '20M',     '17M',     '15M',     '12M',     '10M',      '6M']
     colors =          [   'r',   'g',   'b',   'c',   'r', '#ffff00', '#ff6600', '#00ff00', '#663300', '#00ff99']
     markers =         [   '*',   '^',   'd',   '*',   'o',       'h',       's',       'p',       's',       'd']
 
@@ -591,11 +605,12 @@ def plot_qsos_band_rate(date_records, title, filename):
     for qdate in sorted(date_records.keys()):
         counts = date_records[qdate]
         data[0].append(qdate)
-        for i in range(0, len(CHALLENGE_BANDS)):
-            data[i+1].append(no_zero(counts[CHALLENGE_BANDS[i]]))
+        for i in range(0, len(challenge_bands)):
+            data[i+1].append(no_zero(counts[challenge_bands[i]]))
 
     logging.debug('make_plot(...,...,%s)', title)
-    fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout={'pad': 0.10}, facecolor='blue')
+    # {'pad': 0.10}
+    fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True, facecolor='blue')
 
     if matplotlib.__version__[0] == '1':
         ax = fig.add_subplot(111, axis_bgcolor='white')
@@ -611,8 +626,8 @@ def plot_qsos_band_rate(date_records, title, filename):
     ax.set_xlim(start_date, end_date)
     #ax.set_ylim(0, 100)
 
-    for i in range(0, len(CHALLENGE_BANDS)):
-        ax.plot_date(dates, data[i+1], markerfacecolor=colors[i], marker=markers[i], mew=0, markersize=5, label=CHALLENGE_BANDS[i])
+    for i in range(0, len(challenge_bands)):
+        ax.plot_date(dates, data[i+1], markerfacecolor=colors[i], marker=markers[i], mew=0, markersize=5, label=challenge_bands[i])
     ax.grid(True)
 
     ax.tick_params(axis='y', colors='k', which='both', direction='out')
@@ -637,9 +652,9 @@ def plot_qsos_band_counts(date_records, title, filename):
     make the chart
     """
 
-    CHALLENGE_BANDS = ['160M', '80M', '40M', '30M', '20M',     '17M',     '15M',     '12M',     '10M',      '6M']
+    challenge_bands = ['160M', '80M', '40M', '30M', '20M',     '17M',     '15M',     '12M',     '10M',      '6M']
     colors =          [   'r',   'g',   'b',   'c',   'r', '#990099', '#ff6600', '#00ff00', '#663300', '#00ff99']
-    linestyle =       [   '-',   '-',   '-',   '-',  '--',       '-',       ':',       ':',       ':',      '--']
+    line_styles =     [   '-',   '-',   '-',   '-',  '--',       '-',       ':',       ':',       ':',      '--']
 
     data       = [[],   [],     [],    [],    [],     [],    [],    [],    [],    [],    []]
     totals     = [ 0,    0,      0,     0,     0,      0,     0,     0,     0,     0,     0]
@@ -647,12 +662,13 @@ def plot_qsos_band_counts(date_records, title, filename):
     for qdate in sorted(date_records.keys()):
         counts = date_records[qdate]
         data[0].append(qdate)
-        for i in range(0, len(CHALLENGE_BANDS)):
-            totals[i] += counts[CHALLENGE_BANDS[i]]
+        for i in range(0, len(challenge_bands)):
+            totals[i] += counts[challenge_bands[i]]
             data[i+1].append(totals[i])
 
     logging.debug('make_plot(...,...,%s)', title)
-    fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout={'pad': 0.10}, facecolor=BG)
+    # {'pad': 0.10}
+    fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True, facecolor=BG)
 
     if matplotlib.__version__[0] == '1':
         ax = fig.add_subplot(111, axis_bgcolor=BG)
@@ -668,11 +684,11 @@ def plot_qsos_band_counts(date_records, title, filename):
     ax.set_xlim(start_date, end_date)
     ax.set_ylim(0, 200)
 
-    for i in range(0, len(CHALLENGE_BANDS)):
+    for i in range(0, len(challenge_bands)):
         ax.plot_date(dates, data[i+1], color=colors[i],
-                     linestyle=linestyle[i],
+                     linestyle=line_styles[i],
                      marker='None',
-                     mew=0, markersize=5, label=CHALLENGE_BANDS[i])
+                     mew=0, markersize=5, label=challenge_bands[i])
     ax.grid(True)
 
     ax.tick_params(axis='y', colors=FG, which='both', direction='out', right='off')
@@ -708,11 +724,36 @@ def plot_qsos_band_counts(date_records, title, filename):
     return
 
 
+def combine_qsos(qso_list, qsl_cards):
+    # this is brute-force right now.  maybe it could be made faster.
+    for card in qsl_cards:
+        found = False
+        for qso in qso_list:
+            if qso['call'] == card['call'] and qso['qso_date'] == card['qso_date'] and qso['band'] == card['band']:
+                found = True
+                if qso.get('dxcc') == None:
+                    print('...upgraded QSO to QSL: %s %s %s %s' %
+                          (card['call'], card['band'], card['qso_date'], card['country']))
+                    qso['dxcc'] = card['dxcc']
+                    qso['country'] = card['country']
+                    qso['credit_granted'] = card['credit_granted']
+                    qso['app_lotw_deleted_entity'] = card['app_lotw_deleted_entity']
+                    qso['app_lotw_credit_granted'] = card['app_lotw_credit_granted']
+                    qso['qsl_rcvd'] = 'y'
+        if not found:
+            print('Card not found in QSOs: %s %s %s %s' %
+                  (card['call'], card['band'], card['qso_date'], card['country']))
+            qso_list.append(card)
+    return qso_list
+
+
 def main():
     print('N1KDO\'s LoTW ADIF analyzer version %s' % __version__)
     print()
     qso_list = None
-    # qso_list = read_adif_file('n1kdo.adif')
+    qsl_cards = None
+    #  qso_list = read_adif_file('n1kdo.adif')
+    #  qsl_cards = read_adif_file('n1kdo-cards.adif')
     while qso_list is None:
         print('If you already have a downloaded ADIF data file from LoTW, that can be used,')
         print('otherwise, this program will get the data from LoTW for you, and can optionally')
@@ -722,35 +763,49 @@ def main():
         if have_adif:
             adif_file_name = ''
             try:
-                adif_file_name = input1('Enter the name of the ADIF file to use : ')
-                if adif_file_name == '':
+                mycall = input1('Please enter your LoTW callsign   : ')
+                if mycall == '':
                     continue
-                qso_list = read_adif_file(adif_file_name)
+                lotw_filename = mycall + '.adif'
+                cards_filename = mycall + '-cards.adif'
+                qso_list = read_adif_file(lotw_filename)
+                qsl_cards = read_adif_file(cards_filename)
             except:
                 print('Problem reading ADIF file %s' % adif_file_name)
                 print()
             else:
                 break
         else:
-            mycall = input1('Please enter your LoTW callsign   : ')
+            mycall = input1('Please enter your LoTW callsign : ')
             password = input1('Please enter your LoTW password : ')
-            filename = input1('If you want to save this data for future analysis, enter the filename now : ')
-            if filename == '':
-                filename = None
+            lotw_filename = mycall + '.adif'
+            cards_filename = mycall + '-cards.adif'
             try:
-                print('please wait while your data is fetched from Logbook of The World.  This could take several minutes.')
-                qso_list = get_lotw_adif(mycall, password, filename)
-                print('please wait while your data is crunched.')
-            except:
+                print('Please wait while your data is fetched from Logbook of The World.')
+                print('This could take several minutes.')
+                qso_list = get_lotw_adif(mycall, password, lotw_filename)
+                print('Fetching DXCC confirmations...')
+                qsl_cards = get_qsl_cards(mycall, password, cards_filename)
+                print('Please wait while your data is crunched.')
+            except Exception as ex:
                 e = sys.exc_info()[0]
                 print('Problem downloading from LoTW...' + e)
                 print()
             else:
                 break
 
+    print("Read %d QSOs from LoTW" % len(qso_list))
+    print("Read %d DXCC QSL confirmations" % len(qsl_cards))
+    print()
+
+    print('Combining lists')
+
+    qso_list = combine_qsos(qso_list, qsl_cards)
+
     print('Crunching data...')
     crunch_data('N1KDO', qso_list)
     print('done.')
+
 
 if __name__ == '__main__':
     main()
