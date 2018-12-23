@@ -8,11 +8,15 @@ or it can import an ADIF file you have in hand.
 It uses Matplotlib to make some graphics that show your DXCC progress (as well as total QSOS)
 over time.
 
-![Example](N1KDO_dxcc_qsos.png)
-![Example](N1KDO_cumulative_qsos.png)
-![Example](N1KDO_slots.png)
-![Example](N1KDO_band_rate.png)
-![Example](N1KDO_qsos_rate.png)
+![Example](n1kdo_dxcc_qsos.png)
+
+![Example](n1kdo_qso_rate.png)
+
+![Example](n1kdo_band_slots.png)
+
+![Example](n1kdo_band_rate.png)
+
+![Example](n1kdo_qsos_rate.png)
 
 I might do more work on this, or I might not.  
 I'm putting it on GitHub because others might find it useful.  
