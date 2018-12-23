@@ -252,8 +252,10 @@ def crunch_data(callsign, qso_list):
 
 
 def draw_charts(date_records, callsign):
-    start_date = datetime.datetime.strptime('20170101', '%Y%m%d').date()
-    end_date = datetime.datetime.strptime('20181231', '%Y%m%d').date()
+    start_date = None
+    end_date = None
+    #start_date = datetime.datetime.strptime('20070101', '%Y%m%d').date()
+    #end_date = datetime.datetime.strptime('20181231', '%Y%m%d').date()
 
     # now draw the charts
     qso_charts.plot_qsos_by_date(date_records, callsign + ' QSOs', callsign + '_qsos.png', start_date=start_date,

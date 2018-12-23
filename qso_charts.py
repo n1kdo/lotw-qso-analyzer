@@ -36,14 +36,14 @@ def plot_qsos_by_date(date_records, title, filename, start_date=None, end_date=N
 
     logging.debug('make_plot(...,...,%s)', title)
     # {'pad': 0.10}
-    fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True, facecolor='blue')
+    fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True)
 
     if matplotlib.__version__[0] == '1':
-        ax = fig.add_subplot(111, axis_bgcolor='white')
+        ax = fig.add_subplot(111, axis_bgcolor=BG)
     else:
-        ax = fig.add_subplot(111, facecolor='white')
+        ax = fig.add_subplot(111, facecolor=BG)
 
-    ax.set_title(title, color='k', size=48, weight='bold')
+    ax.set_title(title, color=FG, size=48, weight='bold')
 
     dates = matplotlib.dates.date2num(data[0])
     colors = ['#ffff00', '#ff9933', '#cc6600', '#660000']
@@ -57,13 +57,13 @@ def plot_qsos_by_date(date_records, title, filename, start_date=None, end_date=N
     ax.stackplot(dates, data[1], data[2], data[3], data[4], labels=labels, colors=colors, linewidth=0.2)
     ax.grid(True)
 
-    ax.spines['left'].set_color('k')
-    ax.spines['right'].set_color('k')
-    ax.spines['bottom'].set_color('k')
-    ax.tick_params(axis='y', colors='k', which='both', direction='out')
-    ax.tick_params(axis='x', colors='k', which='both', direction='out', top=False)
-    ax.set_ylabel('QSOS', color='k', size='x-large', weight='bold')
-    ax.set_xlabel('Year', color='k', size='x-large', weight='bold')
+    ax.spines['left'].set_color(FG)
+    ax.spines['right'].set_color(FG)
+    ax.spines['bottom'].set_color(FG)
+    ax.tick_params(axis='y', colors=FG, which='both', direction='out')
+    ax.tick_params(axis='x', colors=FG, which='both', direction='out', top=False)
+    ax.set_ylabel('QSOS', color=FG, size='x-large', weight='bold')
+    ax.set_xlabel('Year', color=FG, size='x-large', weight='bold')
 
     ax.xaxis.set_major_locator(YearLocator())
     ax.xaxis.set_minor_locator(MonthLocator())
@@ -72,7 +72,7 @@ def plot_qsos_by_date(date_records, title, filename, start_date=None, end_date=N
 
     canvas = agg.FigureCanvasAgg(fig)
     canvas.draw()
-    fig.savefig(filename)
+    fig.savefig(filename, facecolor=BG)
     plt.close(fig)
     return
 
@@ -94,15 +94,15 @@ def plot_dxcc_qsos(date_records, title, filename, start_date=None, end_date=None
 
     logging.debug('make_plot(...,...,%s)', title)
     # {'pad': 0.10}
-    fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True, facecolor='blue')
+    fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True)
 
     if matplotlib.__version__[0] == '1':
-        ax = fig.add_subplot(111, axis_bgcolor='white')
+        ax = fig.add_subplot(111, axis_bgcolor=BG)
     else:
-        ax = fig.add_subplot(111, facecolor='white')
+        ax = fig.add_subplot(111, facecolor=BG)
 
     axb = ax.twinx()
-    ax.set_title(title, color='k', size=48, weight='bold')
+    ax.set_title(title, color=FG, size=48, weight='bold')
 
     dates = matplotlib.dates.date2num(dates_data)
     if start_date is None:
@@ -154,7 +154,7 @@ def plot_dxcc_qsos(date_records, title, filename, start_date=None, end_date=None
 
     canvas = agg.FigureCanvasAgg(fig)
     canvas.draw()
-    fig.savefig(filename)
+    fig.savefig(filename, facecolor=BG)
     plt.close(fig)
     return
 
@@ -174,7 +174,6 @@ def plot_qsos_rate(date_records, title, filename, start_date=None, end_date=None
     for t in date_records:
         qdate = t[0]
         if (start_date is None or t[0] >= start_date) and (end_date is None or t[0] <= end_date):
-            print (qdate, t[1])
             # compute stacked bar sizes
             counts = t[1]
             new_dxcc = counts['new_dxcc']
@@ -189,17 +188,16 @@ def plot_qsos_rate(date_records, title, filename, start_date=None, end_date=None
             total = worked + confirmed + challenge + new_dxcc
             if total > maxy:
                 maxy = total
-            print(qdate, new_dxcc, challenge, confirmed, worked, maxy)
     logging.debug('make_plot(...,...,%s)', title)
     # {'pad': 0.10}
     fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True, facecolor='blue')
 
     if matplotlib.__version__[0] == '1':
-        ax = fig.add_subplot(111, axis_bgcolor='white')
+        ax = fig.add_subplot(111, axis_bgcolor=BG)
     else:
-        ax = fig.add_subplot(111, facecolor='white')
+        ax = fig.add_subplot(111, facecolor=BG)
 
-    ax.set_title(title, color='k', size=48, weight='bold')
+    ax.set_title(title, color=FG, size=48, weight='bold')
 
     dates = matplotlib.dates.date2num(data[0])
     if start_date is None:
@@ -221,10 +219,10 @@ def plot_qsos_rate(date_records, title, filename, start_date=None, end_date=None
     labels.append('DXCC Entity')
     ax.grid(True)
 
-    ax.tick_params(axis='y', colors='k', which='both', direction='out')
-    ax.tick_params(axis='x', colors='k', which='both', direction='out', top=False)
-    ax.set_ylabel('QSOs', color='k', size='x-large', weight='bold')
-    ax.set_xlabel('Date', color='k', size='x-large', weight='bold')
+    ax.tick_params(axis='y', colors=FG, which='both', direction='out')
+    ax.tick_params(axis='x', colors=FG, which='both', direction='out', top=False)
+    ax.set_ylabel('QSOs', color=FG, size='x-large', weight='bold')
+    ax.set_xlabel('Date', color=FG, size='x-large', weight='bold')
     if maxy > 100:
         maxy = int((int(maxy / 100) + 1) * 100)
     else:
@@ -232,15 +230,20 @@ def plot_qsos_rate(date_records, title, filename, start_date=None, end_date=None
 
     ax.set_ylim(0, maxy)
 
-    #ax.xaxis.set_major_locator(YearLocator())
-    #ax.xaxis.set_minor_locator(MonthLocator())
-    #ax.xaxis.set_major_formatter(DateFormatter('%Y'))
+    ax.spines['left'].set_color(FG)
+    ax.spines['right'].set_color(FG)
+    ax.spines['top'].set_color(FG)
+    ax.spines['bottom'].set_color(FG)
+
+    ax.xaxis.set_major_locator(YearLocator())
+    ax.xaxis.set_minor_locator(MonthLocator())
+    ax.xaxis.set_major_formatter(DateFormatter('%Y'))
     #ax.xaxis.set_minor_formatter(DateFormatter('%M'))
     legend = ax.legend(bars, labels, loc='upper left', numpoints=1)
 
     canvas = agg.FigureCanvasAgg(fig)
     canvas.draw()
-    fig.savefig(filename)
+    fig.savefig(filename, facecolor=BG)
     plt.close(fig)
     return
 
@@ -265,14 +268,14 @@ def plot_qsos_band_rate(date_records, title, filename, start_date=None, end_date
 
     logging.debug('make_plot(...,...,%s)', title)
     # {'pad': 0.10}
-    fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True, facecolor='blue')
+    fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True)
 
     if matplotlib.__version__[0] == '1':
-        ax = fig.add_subplot(111, axis_bgcolor='white')
+        ax = fig.add_subplot(111, axis_bgcolor=BG)
     else:
-        ax = fig.add_subplot(111, facecolor='white')
+        ax = fig.add_subplot(111, facecolor=BG)
 
-    ax.set_title(title, color='k', size=48, weight='bold')
+    ax.set_title(title, color=FG, size=48, weight='bold')
 
     dates = matplotlib.dates.date2num(data[0])
     labels = ['dxcc', 'challenge', 'confirmed', 'worked']
@@ -288,10 +291,15 @@ def plot_qsos_band_rate(date_records, title, filename, start_date=None, end_date
                      label=challenge_bands[i])
     ax.grid(True)
 
-    ax.tick_params(axis='y', colors='k', which='both', direction='out')
-    ax.tick_params(axis='x', colors='k', which='both', direction='out', top=False)
-    ax.set_ylabel('QSOs', color='k', size='x-large', weight='bold')
-    ax.set_xlabel('Date', color='k', size='x-large', weight='bold')
+    ax.tick_params(axis='y', colors=FG, which='both', direction='out')
+    ax.tick_params(axis='x', colors=FG, which='both', direction='out', top=False)
+    ax.set_ylabel('QSOs', color=FG, size='x-large', weight='bold')
+    ax.set_xlabel('Date', color=FG, size='x-large', weight='bold')
+
+    ax.spines['left'].set_color(FG)
+    ax.spines['right'].set_color(FG)
+    ax.spines['top'].set_color(FG)
+    ax.spines['bottom'].set_color(FG)
 
     ax.xaxis.set_major_locator(YearLocator())
     ax.xaxis.set_minor_locator(MonthLocator())
@@ -300,7 +308,7 @@ def plot_qsos_band_rate(date_records, title, filename, start_date=None, end_date
 
     canvas = agg.FigureCanvasAgg(fig)
     canvas.draw()
-    fig.savefig(filename)
+    fig.savefig(filename, facecolor=BG)
     plt.close(fig)
     return
 
@@ -327,7 +335,7 @@ def plot_challenge_bands_by_date(date_records, title, filename, start_date=None,
 
     logging.debug('make_plot(...,...,%s)', title)
     # {'pad': 0.10}
-    fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True, facecolor=BG)
+    fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True)
 
     if matplotlib.__version__[0] == '1':
         ax = fig.add_subplot(111, axis_bgcolor=BG)
