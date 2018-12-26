@@ -12,11 +12,11 @@ over time.
 
 ![Example](n1kdo_qso_rate.png)
 
-![Example](n1kdo_band_slots.png)
+![Example](n1kdo_challenge_bands_by_date.png)
 
-![Example](n1kdo_band_rate.png)
+![Example](n1kdo_qsos_band_rate.png)
 
-![Example](n1kdo_qsos.png)
+![Example](n1kdo_qsos_by_date.png)
 
 I might do more work on this, or I might not.  
 I'm putting it on GitHub because others might find it useful.  

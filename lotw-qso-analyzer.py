@@ -254,22 +254,26 @@ def crunch_data(callsign, qso_list):
 def draw_charts(date_records, callsign):
     start_date = None
     end_date = None
-    #start_date = datetime.datetime.strptime('20070101', '%Y%m%d').date()
-    #end_date = datetime.datetime.strptime('20181231', '%Y%m%d').date()
+    #start_date = datetime.datetime.strptime('20170101', '%Y%m%d').date()
+    #end_date   = datetime.datetime.strptime('20181231', '%Y%m%d').date()
 
     callsign = callsign.upper()
 
     # now draw the charts
-    qso_charts.plot_qsos_by_date(date_records, callsign + ' QSOs', callsign + '_qsos.png', start_date=start_date,
+    qso_charts.plot_qsos_by_date(date_records, callsign + ' QSOs',
+                                 callsign + '_qsos_by_date.png', start_date=start_date,
                                  end_date=end_date)
-    qso_charts.plot_dxcc_qsos(date_records, callsign + ' DXCC QSOs', callsign + '_dxcc_qsos.png', start_date=start_date,
+    qso_charts.plot_dxcc_qsos(date_records, callsign + ' DXCC QSOs',
+                              callsign + '_dxcc_qsos.png', start_date=start_date,
                               end_date=end_date)
-    qso_charts.plot_qsos_rate(date_records, callsign + ' QSO rate', callsign + '_qso_rate.png', start_date=start_date,
+    qso_charts.plot_qsos_rate(date_records, callsign + ' QSO Rate',
+                              callsign + '_qso_rate.png', start_date=start_date,
                               end_date=end_date)
-    qso_charts.plot_qsos_band_rate(date_records, callsign + ' QSO by band', callsign + '_band_rate.png',
+    qso_charts.plot_qsos_band_rate(date_records, callsign + ' QSO by Band',
+                                   callsign + '_qsos_band_rate.png',
                                    start_date=start_date, end_date=end_date)
     qso_charts.plot_challenge_bands_by_date(date_records, callsign + ' Challenge Band Slots',
-                                            callsign + '_band_slots.png', start_date=start_date, end_date=end_date)
+                                            callsign + '_challenge_bands_by_date.png', start_date=start_date, end_date=end_date)
 
 
 def compare_lists(qso_list, cards_list):

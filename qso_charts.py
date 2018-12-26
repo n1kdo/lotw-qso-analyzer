@@ -1,4 +1,5 @@
 import logging
+import numpy as np
 import matplotlib
 from matplotlib.dates import DateFormatter, YearLocator, MonthLocator
 from matplotlib.ticker import FormatStrFormatter
@@ -188,7 +189,8 @@ def plot_qsos_rate(date_records, title, filename, start_date=None, end_date=None
     """
     make the chart
     """
-    data = [[], [], [], [], []]
+    dates = []
+    data = [[], [], [], []]
     maxy = 0
     for t in date_records:
         qdate = t[0]
@@ -196,14 +198,14 @@ def plot_qsos_rate(date_records, title, filename, start_date=None, end_date=None
             # compute stacked bar sizes
             counts = t[1]
             new_dxcc = counts['new_dxcc']
-            challenge = counts['challenge'] - new_dxcc
-            confirmed = counts['confirmed'] - challenge
-            worked = counts['worked'] - confirmed
-            data[0].append(qdate)
-            data[1].append(new_dxcc)
-            data[2].append(challenge)
-            data[3].append(confirmed)
-            data[4].append(worked)
+            challenge = counts['challenge'] - counts['new_dxcc']
+            confirmed = counts['confirmed'] - counts['challenge']
+            worked = counts['worked'] - counts['confirmed']
+            dates.append(qdate)
+            data[0].append(new_dxcc)
+            data[1].append(challenge)
+            data[2].append(confirmed)
+            data[3].append(worked)
             total = worked + confirmed + challenge + new_dxcc
             if total > maxy:
                 maxy = total
@@ -218,24 +220,29 @@ def plot_qsos_rate(date_records, title, filename, start_date=None, end_date=None
 
     ax.set_title(title, color=FG, size=48, weight='bold')
 
-    dates = matplotlib.dates.date2num(data[0])
+    dates = matplotlib.dates.date2num(dates)
     if start_date is None:
         start_date = dates[0]
     if end_date is None:
         end_date = dates[-1]
     ax.set_xlim(start_date, end_date)
+    ax.set_ylim(0, auto_scale(maxy))
 
+    offsets = np.zeros((len(dates)), np.int32)
+    colors = ['#ff0000', '#ffff00', '#00ff00', '#0000ff']
+    labels = ['DXCC Entity', 'Challenge', 'Confirmed', 'Worked']
     width = 1
-    bars = []
-    labels = []
-    bars.append(ax.bar(dates, data[4], width, bottom=data[3], color='#0000ff'))
-    labels.append('Worked')
-    bars.append(ax.bar(dates, data[3], width, bottom=data[2], color='#00ff00'))
-    labels.append('Confirmed')
-    bars.append(ax.bar(dates, data[2], width, bottom=data[1], color='#ffff00'))
-    labels.append('Challenge')
-    bars.append(ax.bar(dates, data[1], width, color='#ff0000'))
-    labels.append('DXCC Entity')
+    d = np.array(data[0])
+    ax.bar(dates, d, width, bottom=offsets, color=colors[0], label=labels[0])
+    offsets += d
+    d = np.array(data[1])
+    ax.bar(dates, d, width, bottom=offsets, color=colors[1], label=labels[1])
+    offsets += d
+    d = np.array(data[2])
+    ax.bar(dates, d, width, bottom=offsets, color=colors[2], label=labels[2])
+    offsets += d
+    d = np.array(data[3])
+    ax.bar(dates, d, width, bottom=offsets, color=colors[3], label=labels[3])
     ax.grid(True)
 
     ax.tick_params(axis='y', colors=FG, which='both', direction='out')
@@ -255,7 +262,7 @@ def plot_qsos_rate(date_records, title, filename, start_date=None, end_date=None
     ax.xaxis.set_major_formatter(DateFormatter('%Y'))
     #ax.xaxis.set_minor_formatter(DateFormatter('%M'))
 
-    legend = ax.legend(bars, labels, loc='upper left', numpoints=1, facecolor=BG, edgecolor=FG)
+    legend = ax.legend(loc='upper left', numpoints=1, facecolor=BG, edgecolor=FG)
     for text in legend.get_texts():
         text.set_color(FG)
 
@@ -271,21 +278,27 @@ def plot_qsos_band_rate(date_records, title, filename, start_date=None, end_date
     make the chart
     """
     challenge_bands = ['160M', '80M', '40M', '30M', '20M', '17M', '15M', '12M', '10M', '6M']
-    colors = ['r', 'g', 'b', 'c', 'r', '#ffff00', '#ff6600', '#00ff00', '#663300', '#00ff99']
-    markers = ['*', '^', 'd', '*', 'o', 'h', 's', 'p', 's', 'd']
+    colors = ['violet', 'g', 'b', 'c', 'r', '#ffff00', '#ff6600', '#00ff00', '#663300', '#00ffff']
 
-    data = [[], [], [], [], [], [], [], [], [], [], []]
+    data = [[], [], [], [], [], [], [], [], [], []]
+    dates = []
+    biggest = 0
 
     for t in date_records:
         qdate = t[0]
-        counts = t[1]
-        data[0].append(qdate)
-        for i in range(0, len(challenge_bands)):
-            #  data[i+1].append(no_zero(counts[challenge_bands[i]]))
-            data[i + 1].append(counts[challenge_bands[i]])
+        if (start_date is None or qdate >= start_date) and (end_date is None or qdate <= end_date):
+            counts = t[1]
+            dates.append(qdate)
+            sum = 0
+            for i in range(0, len(challenge_bands)):
+                band_count = counts[challenge_bands[i]]
+                sum += band_count
+                data[i].append(band_count)
+            if sum > biggest:
+                biggest = sum
+
 
     logging.debug('make_plot(...,...,%s)', title)
-    # {'pad': 0.10}
     fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True)
 
     if matplotlib.__version__[0] == '1':
@@ -295,18 +308,22 @@ def plot_qsos_band_rate(date_records, title, filename, start_date=None, end_date
 
     ax.set_title(title, color=FG, size=48, weight='bold')
 
-    dates = matplotlib.dates.date2num(data[0])
-    labels = ['dxcc', 'challenge', 'confirmed', 'worked']
+    dates = matplotlib.dates.date2num(dates)
     if start_date is None:
         start_date = dates[0]
     if end_date is None:
         end_date = dates[-1]
     ax.set_xlim(start_date, end_date)
-    # ax.set_ylim(0, 100)
+    ax.set_ylim(0, auto_scale(biggest))
 
+    width = 1
+
+    offset = np.zeros((len(dates)), dtype=np.int32)
     for i in range(0, len(challenge_bands)):
-        ax.plot_date(dates, data[i + 1], markerfacecolor=colors[i], marker=markers[i], mew=0, markersize=5,
-                     label=challenge_bands[i])
+        ta = np.array(data[i])
+        ax.bar(dates, ta, width, bottom=offset, color=colors[i], label=challenge_bands[i])
+        offset += ta
+
     ax.grid(True)
 
     ax.tick_params(axis='y', colors=FG, which='both', direction='out')
@@ -322,6 +339,7 @@ def plot_qsos_band_rate(date_records, title, filename, start_date=None, end_date
     ax.xaxis.set_major_locator(YearLocator())
     ax.xaxis.set_minor_locator(MonthLocator())
     ax.xaxis.set_major_formatter(DateFormatter('%Y'))
+    #ax.xaxis.set_minor_formatter(DateFormatter('%m'))
     legend = ax.legend(loc='upper left', numpoints=1, facecolor=BG, edgecolor=FG)
     for text in legend.get_texts():
         text.set_color(FG)
