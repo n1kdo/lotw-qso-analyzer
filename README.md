@@ -16,9 +16,9 @@ over time.
 
 ![Example](n1kdo_band_rate.png)
 
-![Example](n1kdo_qsos_rate.png)
+![Example](n1kdo_qsos.png)
 
 I might do more work on this, or I might not.  
 I'm putting it on GitHub because others might find it useful.  
 
-n1kdo 20180128
+n1kdo 20181226

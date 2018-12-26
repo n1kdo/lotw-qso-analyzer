@@ -15,12 +15,27 @@ BG = 'black'
 
 plt.ioff()
 
+def auto_scale(val):
+    factor = 1
+    t = val
+    while t > 10:
+        factor = factor * 10
+        t = int(t/10)
+    return (t+1) * factor
+
+
+def no_zero(n):
+    if n == 0:
+        return None
+    return n
+
 
 def plot_qsos_by_date(date_records, title, filename, start_date=None, end_date=None):
     """
     make the chart
     """
     data = [[], [], [], [], []]
+    biggest = 0
     for t in date_records:
         qdate = t[0]
         counts = t[1]
@@ -33,6 +48,8 @@ def plot_qsos_by_date(date_records, title, filename, start_date=None, end_date=N
         data[2].append(challenge - new_dxcc)
         data[3].append(confirmed - challenge)
         data[4].append(worked - confirmed)
+        if worked > biggest:
+            biggest = worked
 
     logging.debug('make_plot(...,...,%s)', title)
     # {'pad': 0.10}
@@ -54,12 +71,15 @@ def plot_qsos_by_date(date_records, title, filename, start_date=None, end_date=N
         end_date = dates[-1]
     ax.set_xlim(start_date, end_date)
 
+    ax.set_ylim(bottom=0, top=auto_scale(biggest))
+
     ax.stackplot(dates, data[1], data[2], data[3], data[4], labels=labels, colors=colors, linewidth=0.2)
     ax.grid(True)
 
     ax.spines['left'].set_color(FG)
     ax.spines['right'].set_color(FG)
     ax.spines['bottom'].set_color(FG)
+    ax.spines['top'].set_color(FG)
     ax.tick_params(axis='y', colors=FG, which='both', direction='out')
     ax.tick_params(axis='x', colors=FG, which='both', direction='out', top=False)
     ax.set_ylabel('QSOS', color=FG, size='x-large', weight='bold')
@@ -68,7 +88,10 @@ def plot_qsos_by_date(date_records, title, filename, start_date=None, end_date=N
     ax.xaxis.set_major_locator(YearLocator())
     ax.xaxis.set_minor_locator(MonthLocator())
     ax.xaxis.set_major_formatter(DateFormatter('%y'))
-    legend = ax.legend(loc='upper left')
+
+    legend = ax.legend(loc='upper left', facecolor=BG, edgecolor=FG)
+    for text in legend.get_texts():
+        text.set_color(FG)
 
     canvas = agg.FigureCanvasAgg(fig)
     canvas.draw()
@@ -139,8 +162,10 @@ def plot_dxcc_qsos(date_records, title, filename, start_date=None, end_date=None
     ax.xaxis.set_major_formatter(DateFormatter('%Y'))
     lns = lns1 + lns2
     labs = [l.get_label() for l in lns]
-    legend = ax.legend(lns, labs, loc='upper left', numpoints=1)
-    legend.get_frame().set_edgecolor(FG)
+
+    legend = ax.legend(lns, labs, loc='upper left', numpoints=1, facecolor=BG, edgecolor=FG)
+    for text in legend.get_texts():
+        text.set_color(FG)
 
     ax.spines['left'].set_color(FG)
     ax.spines['right'].set_color(FG)
@@ -157,12 +182,6 @@ def plot_dxcc_qsos(date_records, title, filename, start_date=None, end_date=None
     fig.savefig(filename, facecolor=BG)
     plt.close(fig)
     return
-
-
-def no_zero(n):
-    if n == 0:
-        return None
-    return n
 
 
 def plot_qsos_rate(date_records, title, filename, start_date=None, end_date=None):
@@ -223,12 +242,8 @@ def plot_qsos_rate(date_records, title, filename, start_date=None, end_date=None
     ax.tick_params(axis='x', colors=FG, which='both', direction='out', top=False)
     ax.set_ylabel('QSOs', color=FG, size='x-large', weight='bold')
     ax.set_xlabel('Date', color=FG, size='x-large', weight='bold')
-    if maxy > 100:
-        maxy = int((int(maxy / 100) + 1) * 100)
-    else:
-        maxy = int((int(maxy / 10)+ 1) * 10)
 
-    ax.set_ylim(0, maxy)
+    ax.set_ylim(0, auto_scale(maxy))
 
     ax.spines['left'].set_color(FG)
     ax.spines['right'].set_color(FG)
@@ -239,7 +254,10 @@ def plot_qsos_rate(date_records, title, filename, start_date=None, end_date=None
     ax.xaxis.set_minor_locator(MonthLocator())
     ax.xaxis.set_major_formatter(DateFormatter('%Y'))
     #ax.xaxis.set_minor_formatter(DateFormatter('%M'))
-    legend = ax.legend(bars, labels, loc='upper left', numpoints=1)
+
+    legend = ax.legend(bars, labels, loc='upper left', numpoints=1, facecolor=BG, edgecolor=FG)
+    for text in legend.get_texts():
+        text.set_color(FG)
 
     canvas = agg.FigureCanvasAgg(fig)
     canvas.draw()
@@ -304,7 +322,9 @@ def plot_qsos_band_rate(date_records, title, filename, start_date=None, end_date
     ax.xaxis.set_major_locator(YearLocator())
     ax.xaxis.set_minor_locator(MonthLocator())
     ax.xaxis.set_major_formatter(DateFormatter('%Y'))
-    legend = ax.legend(loc='upper left', numpoints=1)
+    legend = ax.legend(loc='upper left', numpoints=1, facecolor=BG, edgecolor=FG)
+    for text in legend.get_texts():
+        text.set_color(FG)
 
     canvas = agg.FigureCanvasAgg(fig)
     canvas.draw()
@@ -368,11 +388,10 @@ def plot_challenge_bands_by_date(date_records, title, filename, start_date=None,
     ax.xaxis.set_major_locator(YearLocator())
     ax.xaxis.set_minor_locator(MonthLocator())
     ax.xaxis.set_major_formatter(DateFormatter('%Y'))
-    legend = ax.legend(loc='upper left', numpoints=1)
-    # legend.get_frame().set_color((0, 0, 0, 0))
-    # legend.get_frame().set_edgecolor(FG)
+    legend = ax.legend(loc='upper left', numpoints=1, facecolor=BG, edgecolor=FG)
     for text in legend.get_texts():
-        plt.setp(text, color=FG)
+        text.set_color(FG)
+
     ax.spines['left'].set_color(FG)
     ax.spines['right'].set_color(FG)
     ax.spines['top'].set_color(FG)

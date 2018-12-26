@@ -257,6 +257,8 @@ def draw_charts(date_records, callsign):
     #start_date = datetime.datetime.strptime('20070101', '%Y%m%d').date()
     #end_date = datetime.datetime.strptime('20181231', '%Y%m%d').date()
 
+    callsign = callsign.upper()
+
     # now draw the charts
     qso_charts.plot_qsos_by_date(date_records, callsign + ' QSOs', callsign + '_qsos.png', start_date=start_date,
                                  end_date=end_date)
