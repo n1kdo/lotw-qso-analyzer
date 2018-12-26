@@ -11,8 +11,8 @@ import matplotlib.backends.backend_agg as agg
 
 WIDTH_INCHES = 12
 HEIGHT_INCHES = 9
-FG = 'white'
-BG = 'black'
+FG = 'k'
+BG = 'w'
 
 plt.ioff()
 
