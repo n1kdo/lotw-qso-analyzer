@@ -1,20 +1,20 @@
+import datetime
 import logging
 import numpy as np
 import matplotlib
 from matplotlib.dates import DateFormatter, YearLocator, MonthLocator
 from matplotlib.ticker import FormatStrFormatter
 
-matplotlib.use('Agg')
-# Module import not at top of file.  Sorry, folks, that's how Matplotlib works.
 import matplotlib.pyplot as plt
 import matplotlib.backends.backend_agg as agg
 
 WIDTH_INCHES = 12
-HEIGHT_INCHES = 9
+HEIGHT_INCHES = 8
 FG = 'k'
 BG = 'w'
 
-plt.ioff()
+# plt.ioff()
+
 
 def auto_scale(val):
     factor = 1
@@ -31,39 +31,93 @@ def no_zero(n):
     return n
 
 
-def plot_qsos_by_date(date_records, title, filename, start_date=None, end_date=None):
+# JEFF this should use a python generator
+def next_bin_date(d, size):
+    if size == 7:
+        return d + datetime.timedelta(days=7)
+    else:
+        month = d.month + 1
+        if month > 12:
+            month = 1
+            year = d.year + 1
+        else:
+            year = d.year
+        return datetime.date(year, month, 1)
+
+
+def make_bins(dates, data):
+    logging.debug('make_bins called with %d items' % len(dates))
+    days = (dates[-1] - dates[0]).days
+    if days <= 731:  # 2 years or less -- don't bin! leave as daily data
+        return dates, data
+    if days <= 3650:  # 10 years or less -- bin into weeks
+        bin_start_date = dates[0]
+        bin_size = 7
+        bin_end_date = next_bin_date(bin_start_date, bin_size)
+    else:  # bin into months
+        bin_start_date = datetime.date(dates[0].year, dates[0].month, 1)
+        bin_size = 31
+        bin_end_date = next_bin_date(bin_start_date, bin_size)
+
+    binned_dates = []
+    binned_data = []
+
+    for i in range(len(data)):
+        binned_data.append([])
+    bin_total = [0]*len(data)
+
+    for i in range(0, len(dates)):
+        d = dates[i]
+        while d > bin_end_date:
+            binned_dates.append(bin_start_date)
+            for j in range(len(data)):
+                binned_data[j].append(bin_total[j])
+                bin_total[j] = 0
+            bin_start_date = bin_end_date
+            bin_end_date = next_bin_date(bin_start_date, bin_size)
+
+        for j in range(len(data)):
+            bin_total[j] += data[j][i]
+
+    binned_dates.append(bin_start_date)
+    for j in range(len(data)):
+        binned_data[j].append(bin_total[j])
+        bin_total[j] = 0
+
+    logging.debug('make_bins returning %d items' % len(binned_dates))
+    return binned_dates, binned_data
+
+
+def plot_qsos_by_date(date_records, title, filename=None, start_date=None, end_date=None):
     """
     make the chart
     """
-    data = [[], [], [], [], []]
+    logging.debug('plot_qsos_by_date(...,%s, %s)' % (title, filename))
+    dates = []
+    data = [[], [], [], []]
     biggest = 0
-    for t in date_records:
-        qdate = t[0]
-        counts = t[1]
+    for counts in date_records:
+        qdate = counts['qdate']
         worked = counts['total_worked']
         confirmed = counts['total_confirmed']
         challenge = counts['total_challenge']
         new_dxcc = counts['total_new_dxcc']
-        data[0].append(qdate)
-        data[1].append(new_dxcc)
-        data[2].append(challenge - new_dxcc)
-        data[3].append(confirmed - challenge)
-        data[4].append(worked - confirmed)
+        dates.append(qdate)
+        data[0].append(new_dxcc)
+        data[1].append(challenge - new_dxcc)
+        data[2].append(confirmed - challenge)
+        data[3].append(worked - confirmed)
         if worked > biggest:
             biggest = worked
 
-    logging.debug('make_plot(...,...,%s)', title)
     # {'pad': 0.10}
     fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True)
 
-    if matplotlib.__version__[0] == '1':
-        ax = fig.add_subplot(111, axis_bgcolor=BG)
-    else:
-        ax = fig.add_subplot(111, facecolor=BG)
+    ax = fig.add_subplot(111, facecolor=BG)
 
     ax.set_title(title, color=FG, size=48, weight='bold')
 
-    dates = matplotlib.dates.date2num(data[0])
+    dates = matplotlib.dates.date2num(dates)
     colors = ['#ffff00', '#ff9933', '#cc6600', '#660000']
     labels = ['dxcc', 'challenge', 'confirmed', 'worked']
     if start_date is None:
@@ -74,7 +128,7 @@ def plot_qsos_by_date(date_records, title, filename, start_date=None, end_date=N
 
     ax.set_ylim(bottom=0, top=auto_scale(biggest))
 
-    ax.stackplot(dates, data[1], data[2], data[3], data[4], labels=labels, colors=colors, linewidth=0.2)
+    ax.stackplot(dates, data[0], data[1], data[2], data[3], labels=labels, colors=colors, linewidth=0.2)
     ax.grid(True)
 
     ax.spines['left'].set_color(FG)
@@ -94,41 +148,41 @@ def plot_qsos_by_date(date_records, title, filename, start_date=None, end_date=N
     for text in legend.get_texts():
         text.set_color(FG)
 
-    canvas = agg.FigureCanvasAgg(fig)
-    canvas.draw()
-    fig.savefig(filename, facecolor=BG)
+    if filename is not None:
+        canvas = agg.FigureCanvasAgg(fig)
+        canvas.draw()
+        fig.savefig(filename, facecolor=BG)
+    else:
+        plt.show()
     plt.close(fig)
+    logging.debug('plot_qsos_by_date(...,%s, %s) done' % (title, filename))
     return
 
 
-def plot_dxcc_qsos(date_records, title, filename, start_date=None, end_date=None):
+def plot_dxcc_qsos(date_records, title, filename=None, start_date=None, end_date=None):
     """
     make the chart
     """
-    dates_data = []
+    logging.debug('plot_dxcc_qsos(...,%s, %s)' % (title, filename))
+    dates = []
     total_dxcc_data = []
     total_challenge_data = []
 
-    for t in date_records:
-        qso_date = t[0]
-        counts = t[1]
-        dates_data.append(qso_date)
+    for counts in date_records:
+        qso_date = counts['qdate']
+        dates.append(qso_date)
         total_dxcc_data.append(counts['total_new_dxcc'])
         total_challenge_data.append(counts['total_challenge'])
 
-    logging.debug('make_plot(...,...,%s)', title)
     # {'pad': 0.10}
     fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True)
 
-    if matplotlib.__version__[0] == '1':
-        ax = fig.add_subplot(111, axis_bgcolor=BG)
-    else:
-        ax = fig.add_subplot(111, facecolor=BG)
+    ax = fig.add_subplot(111, facecolor=BG)
 
     axb = ax.twinx()
     ax.set_title(title, color=FG, size=48, weight='bold')
 
-    dates = matplotlib.dates.date2num(dates_data)
+    dates = matplotlib.dates.date2num(dates)
     if start_date is None:
         start_date = dates[0]
     if end_date is None:
@@ -178,25 +232,30 @@ def plot_dxcc_qsos(date_records, title, filename, start_date=None, end_date=None
     axb.spines['top'].set_color(FG)
     axb.spines['bottom'].set_color(FG)
 
-    canvas = agg.FigureCanvasAgg(fig)
-    canvas.draw()
-    fig.savefig(filename, facecolor=BG)
+    if filename is not None:
+        canvas = agg.FigureCanvasAgg(fig)
+        canvas.draw()
+        fig.savefig(filename, facecolor=BG)
+    else:
+        plt.show()
     plt.close(fig)
+    logging.debug('plot_dxcc_qsos(...,%s, %s) done' % (title, filename))
     return
 
 
-def plot_qsos_rate(date_records, title, filename, start_date=None, end_date=None):
+def plot_qsos_rate(date_records, title, filename=None, start_date=None, end_date=None):
     """
     make the chart
     """
+    logging.debug('plot_qsos_rate(...,%s, %s)' % (title, filename))
+
     dates = []
     data = [[], [], [], []]
     maxy = 0
-    for t in date_records:
-        qdate = t[0]
-        if (start_date is None or t[0] >= start_date) and (end_date is None or t[0] <= end_date):
+    for counts in date_records:
+        qdate = counts['qdate']
+        if (start_date is None or qdate >= start_date) and (end_date is None or qdate <= end_date):
             # compute stacked bar sizes
-            counts = t[1]
             new_dxcc = counts['new_dxcc']
             challenge = counts['challenge'] - counts['new_dxcc']
             confirmed = counts['confirmed'] - counts['challenge']
@@ -206,19 +265,18 @@ def plot_qsos_rate(date_records, title, filename, start_date=None, end_date=None
             data[1].append(challenge)
             data[2].append(confirmed)
             data[3].append(worked)
-            total = worked + confirmed + challenge + new_dxcc
-            if total > maxy:
-                maxy = total
-    logging.debug('make_plot(...,...,%s)', title)
-    # {'pad': 0.10}
-    fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True, facecolor='blue')
 
-    if matplotlib.__version__[0] == '1':
-        ax = fig.add_subplot(111, axis_bgcolor=BG)
-    else:
-        ax = fig.add_subplot(111, facecolor=BG)
-
+    fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True)
+    ax = fig.add_subplot(111, facecolor=BG)
     ax.set_title(title, color=FG, size=48, weight='bold')
+
+    dates, data = make_bins(dates, data)
+
+    for i in range(0, len(data[0])):
+        total = data[0][i] + data[1][i] + data[2][i] + data[3][i]
+        if total > maxy:
+            maxy = total
+    delta = (dates[-1] - dates[0]).days
 
     dates = matplotlib.dates.date2num(dates)
     if start_date is None:
@@ -229,20 +287,22 @@ def plot_qsos_rate(date_records, title, filename, start_date=None, end_date=None
     ax.set_ylim(0, auto_scale(maxy))
 
     offsets = np.zeros((len(dates)), np.int32)
-    colors = ['#ff0000', '#ffff00', '#00ff00', '#0000ff']
+    colors = ['#990000', '#ff6600', '#00ff00', '#0000ff']
     labels = ['DXCC Entity', 'Challenge', 'Confirmed', 'Worked']
-    width = 1
-    d = np.array(data[0])
-    ax.bar(dates, d, width, bottom=offsets, color=colors[0], label=labels[0])
-    offsets += d
-    d = np.array(data[1])
-    ax.bar(dates, d, width, bottom=offsets, color=colors[1], label=labels[1])
+    print('delta=', delta)
+    width = delta / 365
+    print('width=', width)
+    d = np.array(data[3])
+    ax.bar(dates, d, width, bottom=offsets, color=colors[3], label=labels[3])
     offsets += d
     d = np.array(data[2])
     ax.bar(dates, d, width, bottom=offsets, color=colors[2], label=labels[2])
     offsets += d
-    d = np.array(data[3])
-    ax.bar(dates, d, width, bottom=offsets, color=colors[3], label=labels[3])
+    d = np.array(data[1])
+    ax.bar(dates, d, width, bottom=offsets, color=colors[1], label=labels[1])
+    offsets += d
+    d = np.array(data[0])
+    ax.bar(dates, d, width, bottom=offsets, color=colors[0], label=labels[0])
     ax.grid(True)
 
     ax.tick_params(axis='y', colors=FG, which='both', direction='out')
@@ -266,46 +326,51 @@ def plot_qsos_rate(date_records, title, filename, start_date=None, end_date=None
     for text in legend.get_texts():
         text.set_color(FG)
 
-    canvas = agg.FigureCanvasAgg(fig)
-    canvas.draw()
-    fig.savefig(filename, facecolor=BG)
+    if filename is not None:
+        canvas = agg.FigureCanvasAgg(fig)
+        canvas.draw()
+        fig.savefig(filename, facecolor=BG)
+    else:
+        plt.show()
     plt.close(fig)
+    logging.debug('plot_qsos_rate(...,%s, %s) done' % (title, filename))
     return
 
 
-def plot_qsos_band_rate(date_records, title, filename, start_date=None, end_date=None):
+def plot_qsos_band_rate(date_records, title, filename=None, start_date=None, end_date=None):
     """
     make the chart
     """
+    logging.debug('plot_qsos_band_rate(...,%s, %s)' % (title, filename))
+
     challenge_bands = ['160M', '80M', '40M', '30M', '20M', '17M', '15M', '12M', '10M', '6M']
     colors = ['violet', 'g', 'b', 'c', 'r', '#ffff00', '#ff6600', '#00ff00', '#663300', '#00ffff']
 
     data = [[], [], [], [], [], [], [], [], [], []]
     dates = []
-    biggest = 0
 
-    for t in date_records:
-        qdate = t[0]
+    for counts in date_records:
+        qdate = counts['qdate']
         if (start_date is None or qdate >= start_date) and (end_date is None or qdate <= end_date):
-            counts = t[1]
             dates.append(qdate)
             sum = 0
             for i in range(0, len(challenge_bands)):
                 band_count = counts[challenge_bands[i]]
                 sum += band_count
                 data[i].append(band_count)
-            if sum > biggest:
-                biggest = sum
 
+    dates, data = make_bins(dates, data)
+    maxy = 0
+    for i in range(0, len(data[0])):
+        total = 0
+        for j in range(0, len(challenge_bands)):
+            total += data[j][i]
+        if total > maxy:
+            maxy = total
+    delta = (dates[-1] - dates[0]).days
 
-    logging.debug('make_plot(...,...,%s)', title)
     fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True)
-
-    if matplotlib.__version__[0] == '1':
-        ax = fig.add_subplot(111, axis_bgcolor=BG)
-    else:
-        ax = fig.add_subplot(111, facecolor=BG)
-
+    ax = fig.add_subplot(111, facecolor=BG)
     ax.set_title(title, color=FG, size=48, weight='bold')
 
     dates = matplotlib.dates.date2num(dates)
@@ -314,9 +379,9 @@ def plot_qsos_band_rate(date_records, title, filename, start_date=None, end_date
     if end_date is None:
         end_date = dates[-1]
     ax.set_xlim(start_date, end_date)
-    ax.set_ylim(0, auto_scale(biggest))
+    ax.set_ylim(0, auto_scale(maxy))
 
-    width = 1
+    width = delta / 365
 
     offset = np.zeros((len(dates)), dtype=np.int32)
     for i in range(0, len(challenge_bands)):
@@ -344,41 +409,41 @@ def plot_qsos_band_rate(date_records, title, filename, start_date=None, end_date
     for text in legend.get_texts():
         text.set_color(FG)
 
-    canvas = agg.FigureCanvasAgg(fig)
-    canvas.draw()
-    fig.savefig(filename, facecolor=BG)
+    if filename is not None:
+        canvas = agg.FigureCanvasAgg(fig)
+        canvas.draw()
+        fig.savefig(filename, facecolor=BG)
+    else:
+        plt.show()
     plt.close(fig)
+    logging.debug('plot_qsos_band_rate(...,%s, %s) done' % (title, filename))
     return
 
 
-def plot_challenge_bands_by_date(date_records, title, filename, start_date=None, end_date=None):
+def plot_challenge_bands_by_date(date_records, title, filename=None, start_date=None, end_date=None):
     """
     make the chart
     """
+    logging.debug('plot_challenge_bands_by_date(...,%s, %s)' % (title, filename))
 
     challenge_bands = ['160M', '80M', '40M', '30M', '20M', '17M', '15M', '12M', '10M', '6M']
     colors = ['r', 'g', 'b', 'c', 'r', '#990099', '#ff6600', '#00ff00', '#663300', '#00ff99']
-    line_styles = ['-', '-', '-', '-', '--', '-', ':', ':', ':', '--']
+    line_styles = [':', '--', '--', '-', '--', ':', '--', ':', '--', '--']
 
     data = [[], [], [], [], [], [], [], [], [], [], []]
     totals = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
-    for t in date_records:
-        qdate = t[0]
-        counts = t[1]
+    for counts in date_records:
+        qdate = counts['qdate']
         data[0].append(qdate)
         for i in range(0, len(challenge_bands)):
             totals[i] += counts['challenge_' + challenge_bands[i]]
             data[i + 1].append(totals[i])
 
-    logging.debug('make_plot(...,...,%s)', title)
     # {'pad': 0.10}
     fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True)
 
-    if matplotlib.__version__[0] == '1':
-        ax = fig.add_subplot(111, axis_bgcolor=BG)
-    else:
-        ax = fig.add_subplot(111, facecolor=BG)
+    ax = fig.add_subplot(111, facecolor=BG)
 
     axb = ax.twinx()
     ax.set_title(title, color=FG, size=48, weight='bold')
@@ -423,10 +488,14 @@ def plot_challenge_bands_by_date(date_records, title, filename, start_date=None,
     axb.set_ylim(ax.get_ylim())
     axb.tick_params(axis='y', colors=FG, which='both', direction='out')
 
-    canvas = agg.FigureCanvasAgg(fig)
-    canvas.draw()
-    fig.savefig(filename, facecolor=BG)
+    if filename is not None:
+        canvas = agg.FigureCanvasAgg(fig)
+        canvas.draw()
+        fig.savefig(filename, facecolor=BG)
+    else:
+        plt.show()
     plt.close(fig)
+    logging.debug('plot_challenge_bands_by_date(...,%s, %s) done' % (title, filename))
     return
 
 

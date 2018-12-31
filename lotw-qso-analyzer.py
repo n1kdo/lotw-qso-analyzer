@@ -45,7 +45,7 @@ __license__ = 'Simplified BSD'
 __version__ = '0.02'
 
 logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S',
-                    level=logging.WARN)
+                    level=logging.DEBUG)
 logging.Formatter.converter = time.gmtime
 
 BANDS = ['160M', '80M', '60M', '40M', '30M', '20M', '17M', '15M', '12M', '10M', '6M', '2M', '70CM']
@@ -82,14 +82,19 @@ def get_yes_no(prompt, default=None):
 
 def crunch_data(callsign, qso_list):
     #    print_csv_data = get_yes_no('Show CSV data for Excel [y/N] : ', False)
-
-    print()
-    print('%5d total LoTW QSOs' % len(qso_list))
+    logging.debug('crunch_data')
+    logging.info('%5d total LoTW QSOs' % len(qso_list))
+    # sort list of QSOs into ascending range by qso_date
     qso_list.sort(key=lambda q: q['qso_date'])
 
     dxcc_confirmed = {}
-    date_records = {}  # key is qso date.  value is [worked, confirmed]
-    unique_calls = {}
+    date_records = {}  # key is qso date.  value is dict, first record is summary data.
+    total_counts = {'qdate': 'total', 'worked': 0, 'confirmed': 0, 'new_dxcc': 0, 'challenge': 0}
+    for band in BANDS:
+        total_counts[band] = 0
+        total_counts['challenge_' + band] = 0
+
+    #    unique_calls = {}
     first_date = None
     last_date = None
     n_worked = 0
@@ -99,16 +104,14 @@ def crunch_data(callsign, qso_list):
     for qso in qso_list:
         qso_date = qso.get('qso_date')
         if qso_date is not None:
-            qdate = convert_qso_date(qso_date)
-            qso_dxcc = qso.get('dxcc')
-            qsl_rcvd = qso.get('qsl_rcvd')
-            qso_band = qso.get('band')
-            # credit_granted = qso.get('app_lotw_credit_granted')
             confirmed = 0
             new_dxcc = 0
             challenge = 0
             n_worked += 1
 
+            qso_dxcc = qso.get('dxcc')
+            qsl_rcvd = qso.get('qsl_rcvd')
+            qso_band = qso.get('band')
             if qso_dxcc is not None:
                 if qsl_rcvd is not None and qsl_rcvd.lower() == 'y':
                     confirmed = 1
@@ -148,41 +151,48 @@ def crunch_data(callsign, qso_list):
                 qdate = convert_qso_date(qso_date)
                 if qdate in date_records:
                     counts = date_records[qdate]
-                    counts['worked'] += 1
-                    counts['confirmed'] += confirmed
-                    counts['new_dxcc'] += new_dxcc
-                    counts['challenge'] += challenge
-                    counts['challenge_' + qso_band] += challenge
-                    counts[qso_band] += 1
                 else:
-                    counts = {'qdate': qdate, 'worked': 1, 'confirmed': confirmed,
-                              'new_dxcc': new_dxcc, 'challenge': challenge}
+                    counts = {'qdate': qdate, 'worked': 0, 'confirmed': 0,
+                              'new_dxcc': 0, 'challenge': 0}
                     for band in BANDS:
                         counts[band] = 0
                         counts['challenge_' + band] = 0
-                    counts['challenge_' + qso_band] += challenge
-                    counts[qso_band] += 1
-                date_records[qdate] = counts
+                        date_records[qdate] = counts
+
+                if counts['qdate'] != qdate:
+                    logging.error('ow ow ow!')  # this is bad bad
+                counts['worked'] += 1
+                counts['confirmed'] += confirmed
+                counts['new_dxcc'] += new_dxcc
+                counts['challenge'] += challenge
+                counts['challenge_' + qso_band] += challenge
+                counts[qso_band] += 1
+                total_counts['worked'] += 1
+                total_counts['confirmed'] += confirmed
+                total_counts['new_dxcc'] += new_dxcc
+                total_counts['challenge'] += challenge
+                total_counts['challenge_' + qso_band] += challenge
+                total_counts[qso_band] += 1
 
                 if last_date is None or qdate > last_date:
                     last_date = qdate
                 if first_date is None or qdate < first_date:
                     first_date = qdate
             else:
-                print('DANGER WILL ROBINSON!')
+                logging.warning("Invalid QSO record has no date ", qso)
 
-            call = qso['call']
-            if call not in unique_calls:
-                unique_calls[call] = [qso]
-            else:
-                unique_calls[call].append(qso)
+#            call = qso['call']
+#            if call not in unique_calls:
+#                unique_calls[call] = [qso]
+#            else:
+#                unique_calls[call].append(qso)
 
     print('%5d counted worked' % n_worked)
     print('%5d confirmed' % n_confirmed)
     print('%5d challenge' % n_challenge)
     print('%5d total dxcc' % len(dxcc_confirmed))
     print()
-    print('%5d days worked' % len(date_records))
+    print('%5d unique log dates' % len(date_records))
     print('first QSO date: ' + first_date.strftime('%Y-%m-%d'))
     print('last QSO date: ' + last_date.strftime('%Y-%m-%d'))
 
@@ -208,7 +218,7 @@ def crunch_data(callsign, qso_list):
         counts['total_confirmed'] = total_confirmed
         counts['total_new_dxcc'] = total_new_dxcc
         counts['total_challenge'] = total_new_challenge
-        date_records[qdate] = counts  # I think this is redundant.
+        #date_records[qdate] = counts  # I think this is redundant.
     #        print(("%s  %5d  %5d  %5d  %5d  %5d  %5d  %5d  %5d") % (qdate.strftime('%Y-%m-%d'),
     #                                                               counts['worked'],
     #                                                               counts['confirmed'],
@@ -219,49 +229,54 @@ def crunch_data(callsign, qso_list):
     #                                                               counts['challenge'],
     #                                                               counts['total_challenge']))
 
-    # top 20 most productive days
-    number_of_top_days = 20
-    if len(date_records) < number_of_top_days:
-        number_of_top_days = len(date_records)
-    print()
-    print('Top %d days' % number_of_top_days)
-    print()
-    most_productive = sorted(list(date_records.values()), key=lambda counts: counts['worked'], reverse=True)
-    for i in range(0, number_of_top_days):
-        print('%2d  %12s %5d' % (i + 1, str(most_productive[i]['qdate']), most_productive[i]['worked']))
 
-    calls_by_qso = []
-    for call, qso_list in unique_calls.items():
-        calls_by_qso.append((call, len(qso_list)))
-    calls_by_qso = sorted(calls_by_qso, key=lambda count: count[1], reverse=True)
+    if False: # show summary data, not needed for charting, but possibly interesting.
+        # top 20 most productive days
+        number_of_top_days = 20
+        if len(date_records) < number_of_top_days:
+            number_of_top_days = len(date_records)
+        print()
+        print('Top %d days' % number_of_top_days)
+        print()
+        most_productive = sorted(list(date_records.values()), key=lambda counts: counts['worked'], reverse=True)
+        for i in range(0, number_of_top_days):
+            print('%2d  %12s %5d' % (i + 1, str(most_productive[i]['qdate']), most_productive[i]['worked']))
 
-    # show top calls
-    number_of_top_calls = 40
-    print()
-    print('Top %d calls' % number_of_top_calls)
-    print()
-    for i in range(0, number_of_top_calls):
-        print('%2d %10s %3d' % (i + 1, calls_by_qso[i][0], calls_by_qso[i][1]))
+        calls_by_qso = []
+        for call, qso_list in unique_calls.items():
+            calls_by_qso.append((call, len(qso_list)))
+        calls_by_qso = sorted(calls_by_qso, key=lambda count: count[1], reverse=True)
+
+        # show top calls
+        number_of_top_calls = 40
+        print()
+        print('Top %d calls' % number_of_top_calls)
+        print()
+        for i in range(0, number_of_top_calls):
+            print('%2d %10s %3d' % (i + 1, calls_by_qso[i][0], calls_by_qso[i][1]))
 
     # don't want to sort this more than once.
+    # the result is a list of counts dicts
     results = []
     for key in sorted(date_records.keys()):
         # if key >= start_date and key <= end_date:
-        results.append((key, date_records[key]))
+        results.append(date_records[key])
+    logging.debug('crunched data for %d log days' % len(results))
     return results
 
 
-def draw_charts(date_records, callsign):
-    start_date = None
-    end_date = None
-    #start_date = datetime.datetime.strptime('20170101', '%Y%m%d').date()
+def draw_charts(date_records, callsign, start_date=None, end_date=None):
+    logging.debug('draw_charts')
+    #start_date = datetime.datetime.strptime('20070101', '%Y%m%d').date()
+    #start_date = datetime.datetime.strptime('20140101', '%Y%m%d').date()
     #end_date   = datetime.datetime.strptime('20181231', '%Y%m%d').date()
 
     callsign = callsign.upper()
 
     # now draw the charts
     qso_charts.plot_qsos_by_date(date_records, callsign + ' QSOs',
-                                 callsign + '_qsos_by_date.png', start_date=start_date,
+                                 callsign + '_qsos_by_date.png',
+                                 start_date=start_date,
                                  end_date=end_date)
     qso_charts.plot_dxcc_qsos(date_records, callsign + ' DXCC QSOs',
                               callsign + '_dxcc_qsos.png', start_date=start_date,
@@ -291,15 +306,17 @@ def compare_lists(qso_list, cards_list):
 
 
 def combine_qsos(qso_list, qsl_cards):
-    # this is brute-force right now.  maybe it could be made faster.
+    logging.debug('combining dxcc qsl card info')
+    # this is brute-force right now.  it could be made faster.
+    updated_qsls = []
+    added_qsls = []
     for card in qsl_cards:
         found = False
         for qso in qso_list:
             if qso['call'] == card['call'] and qso['qso_date'] == card['qso_date'] and qso['band'] == card['band']:
                 found = True
                 if qso.get('dxcc') == None:
-                    print('QSO to QSL: %s %s %s %s' %
-                          (card['call'], card['band'], card['qso_date'], card['country']))
+                    # print('QSO to QSL: %s %s %s %s' % (card['call'], card['band'], card['qso_date'], card['country']))
                     qso['dxcc'] = card['dxcc']
                     qso['country'] = card['country']
                     qso['credit_granted'] = card['credit_granted']
@@ -307,27 +324,27 @@ def combine_qsos(qso_list, qsl_cards):
                     qso['app_lotw_credit_granted'] = card['app_lotw_credit_granted']
                     qso['qsl_rcvd'] = 'y'
                     qso['app_n1kdo_qso_combined'] = 'qslcards detail added'
+                    updated_qsls.append(qso);
         if not found:
-            print('QSL added from card: %s %s %s %s' %
-                  (card['call'], card['band'], card['qso_date'], card['country']))
+            # print('QSL added from card: %s %s %s %s' % (card['call'], card['band'], card['qso_date'], card['country']))
             card['app_n1kdo_qso_combined'] = 'qslcards QSL added'
             card['qsl_rcvd'] = 'y'
+            added_qsls.append(card);
             qso_list.append(card)
+    logging.info('updated %d QSL from cards, added %d QSLs from cards' % ( len(updated_qsls), len(added_qsls)))
     return qso_list
 
 
 def main():
     print('N1KDO\'s LoTW ADIF analyzer version %s' % __version__)
-    print()
     qso_list = None
     qsl_cards = None
 
-    # uncomment these next seventeen lines to test
+    # uncomment these next ~8 lines to test
     if True:
         callsign = 'n1kdo'
         lotw_filename = callsign + '.adif'
         cards_filename = callsign + '-cards.adif'
-        combined_filename = callsign + '-combined.adif'
         qso_list = adif.read_adif_file(lotw_filename)
         qsl_cards = adif.read_adif_file(cards_filename)
 
@@ -343,11 +360,8 @@ def main():
                 callsign = input1('Please enter your LoTW callsign   : ')
                 if callsign == '':
                     continue
-                lotw_filename = callsign + '.adif'
-                cards_filename = callsign + '-cards.adif'
-                combined_filename = callsign + '-combined.adif'
-                qso_list = adif.read_adif_file(lotw_filename)
-                qsl_cards = adif.read_adif_file(cards_filename)
+                qso_list = adif.read_adif_file(callsign + '.adif')
+                qsl_cards = adif.read_adif_file(callsign + '-cards.adif')
             except:
                 print('Problem reading ADIF file %s' % adif_file_name)
                 print()
@@ -356,14 +370,13 @@ def main():
         else:
             callsign = input1('Please enter your LoTW callsign : ')
             password = input1('Please enter your LoTW password : ')
-            lotw_filename = callsign + '.adif'
-            cards_filename = callsign + '-cards.adif'
             try:
                 print('Please wait while your data is fetched from Logbook of The World.')
                 print('This could take several minutes.')
-                qso_list = adif.get_lotw_adif(callsign, password, lotw_filename)
+                qso_list = adif.get_lotw_adif(callsign, password, callsign + '.adif')
+                # JEFF creation of filename from unchecked callsign is dangerous. fix this by sanitizing the callsign.
                 print('Fetching DXCC confirmations...')
-                qsl_cards = adif.get_qsl_cards(callsign, password, cards_filename)
+                qsl_cards = adif.get_qsl_cards(callsign, password, callsign + '-cards.adif')
                 print('Please wait while your data is crunched.')
             except Exception as ex:
                 e = sys.exc_info()[0]
@@ -372,21 +385,13 @@ def main():
             else:
                 break
 
-    print("Read %d QSOs from LoTW" % len(qso_list))
-    print("Read %d DXCC QSL confirmations" % len(qsl_cards))
-    print()
-    print('Combining lists')
     qso_list = combine_qsos(qso_list, qsl_cards)
-    print()
-    print('saving intermediate file')
-    adif.write_adif_file(qso_list, combined_filename)
-    print()
-    print('Crunching data...')
+    adif.write_adif_file(qso_list, callsign + '-combined.adif')
+
     date_records = crunch_data('N1KDO', qso_list)
-    print('drawing charts')
     draw_charts(date_records, callsign);
-    print()
-    print('done.')
+
+    logging.info('done.')
 
 
 if __name__ == '__main__':

@@ -15,6 +15,7 @@ and no type data is emitted when new adif is created.
 you probably should not use this.  "it works for me."
 """
 
+
 def call_lotw(**params):
     logging.debug('Calling LoTW')
     qsos = []
@@ -107,6 +108,7 @@ def adif_field(s):
 
 
 def read_adif_file(adif_file_name):
+    logging.debug('read_adif_file %s' % adif_file_name)
     f = open(adif_file_name)
     qso = {}
     qsos = []
@@ -122,6 +124,7 @@ def read_adif_file(adif_file_name):
                     qso = {}
         else:
             qso[item_name] = item_value
+    logging.debug('read %d records from %s' % (len(qsos), adif_file_name))
     return qsos
 
 
@@ -130,28 +133,58 @@ def write_adif_field(key, item):
         ss = str(item)
         return '<{0}:{1}>{2}\n'.format(key, len(ss), ss)
     else:
-        return '<%s>\n'.format(key)
+        return '<{0}>\n'.format(key)
 
 
 def write_adif_file(qsos, adif_file_name):
-    keys = ['call',
-            'qso_date',
-            'app_lotw_modegroup',
-            'app_lotw_mode',
-            'band',
-            'dxcc',
-            'country',
-            'qsl_rcvd',
-            ]
+    logging.debug('write_adif_file %s' % adif_file_name)
+    save_keys = ['app_lotw_mode',
+                 'app_lotw_modegroup',
+                 'app_n1kdo_qso_combined',
+                 'band',
+                 'call',
+                 'country',
+                 'dxcc',
+                 'gridsquare',
+                 'mode',
+                 'qso_date',
+                 'qsl_rcvd',
+                 ]
+    ignore_keys = ['app_lotw_2xqsl',
+                   'app_lotw_dxcc_application_nr',
+                   'app_lotw_cqz_inferred',
+                   'app_lotw_cqz_invalid',
+                   'app_lotw_credit_granted',
+                   'app_lotw_deleted_entity',
+                   'app_lotw_dxcc_entity_status',
+                   'app_lotw_dxcc_processed_dtg',
+                   'app_lotw_npsunit',
+                   'app_lotw_gridsquare_invalid',
+                   'app_lotw_ituz_inferred',
+                   'app_lotw_ituz_invalid',
+                   'app_lotw_qslmode',
+                   'band_rx',
+                   'cqz', 'credit_granted',
+                   'cnty',
+                   'freq',
+                   'freq_rx',
+                   'iota',
+                   'ituz',
+                   'state',
+                   'pfx',
+                   'qslrdate',
+                   'time_on',
+                   ]
     with open(adif_file_name, 'w') as f:
         f.write('n1kdo lotw-qso-analyzer adif (?) compatible file\n\n')
-        f.write(write_adif_field('programid','n1kdo log analyzer'))
+        f.write(write_adif_field('programid', 'n1kdo log analyzer'))
         f.write('<eoh>\n\n')
         for qso in qsos:
-            for key in keys:
-                item = qso.get(key)
-                #for key, item in qso.items():
-                f.write(write_adif_field(key, item))
+            for key, value in qso.items():
+                if key in save_keys:
+                    f.write(write_adif_field(key, value))
+                else:
+                    if key not in ignore_keys:
+                        logging.warning('not saving %s %s' % (key, value))
             f.write('<eor>\n\n')
-
-
+    logging.debug('wrote_adif_file %s' % adif_file_name)
