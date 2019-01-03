@@ -115,7 +115,7 @@ def plot_qsos_by_date(date_records, title, filename=None, start_date=None, end_d
 
     ax = fig.add_subplot(111, facecolor=BG)
 
-    ax.set_title(title, color=FG, size=48, weight='bold')
+    ax.set_title(title, color=FG, size='xx-large', weight='bold')
 
     dates = matplotlib.dates.date2num(dates)
     colors = ['#ffff00', '#ff9933', '#cc6600', '#660000']
@@ -135,7 +135,7 @@ def plot_qsos_by_date(date_records, title, filename=None, start_date=None, end_d
     ax.spines['right'].set_color(FG)
     ax.spines['bottom'].set_color(FG)
     ax.spines['top'].set_color(FG)
-    ax.tick_params(axis='y', colors=FG, which='both', direction='out')
+    ax.tick_params(axis='y', colors=FG, which='both', direction='out', left=True, right=True)
     ax.tick_params(axis='x', colors=FG, which='both', direction='out', top=False)
     ax.set_ylabel('QSOS', color=FG, size='x-large', weight='bold')
     ax.set_xlabel('Year', color=FG, size='x-large', weight='bold')
@@ -180,7 +180,7 @@ def plot_dxcc_qsos(date_records, title, filename=None, start_date=None, end_date
     ax = fig.add_subplot(111, facecolor=BG)
 
     axb = ax.twinx()
-    ax.set_title(title, color=FG, size=48, weight='bold')
+    ax.set_title(title, color=FG, size='xx-large', weight='bold')
 
     dates = matplotlib.dates.date2num(dates)
     if start_date is None:
@@ -201,14 +201,21 @@ def plot_dxcc_qsos(date_records, title, filename=None, start_date=None, end_date
                          mew=0, markersize=5, label='Challenge')
     ax.grid(True)
 
-    ax.set_yticks([0, 50, 100, 150, 200, 250, 300, 350])
-    ax.set_yticks([339], minor=True)
+    yticks = [0, 50, 100, 150, 200, 250, 300, 350]
+    # yticks.append(total_dxcc_data[-1])
+    ax.set_yticks(yticks)
+    minor_ticks = [340,total_dxcc_data[-1]]
+    ax.set_yticks(minor_ticks, minor=True)  # current number of dxcc entities
     ax.yaxis.set_minor_formatter(FormatStrFormatter('%d'))
 
     ax.tick_params(axis='y', colors=FG, which='both', direction='out', right=False, labelcolor='r')
     ax.tick_params(axis='x', colors=FG, which='both', direction='out', top=False)
     ax.set_ylabel('DXCCs', color='r', size='x-large', weight='bold')
     axb.set_ylabel('Challenge', color='g', size='x-large', weight='bold')
+    challenge_ticks = [1000, 1500, 2000, 2500, 3000, 3500]
+    axb.set_yticks(challenge_ticks)
+    axb.set_yticks([total_challenge_data[-1]], minor=True)
+    axb.yaxis.set_minor_formatter(FormatStrFormatter('%d'))
     axb.tick_params(axis='y', colors=FG, which='both', direction='out', left=False, labelcolor='g')
     ax.set_xlabel('Date', color=FG, size='x-large', weight='bold')
 

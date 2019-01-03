@@ -278,7 +278,7 @@ def draw_charts(date_records, callsign, start_date=None, end_date=None):
                                  callsign + '_qsos_by_date.png',
                                  start_date=start_date,
                                  end_date=end_date)
-    qso_charts.plot_dxcc_qsos(date_records, callsign + ' DXCC QSOs',
+    qso_charts.plot_dxcc_qsos(date_records, callsign + ' DXCC and Challenge QSLs',
                               callsign + '_dxcc_qsos.png', start_date=start_date,
                               end_date=end_date)
     qso_charts.plot_qsos_rate(date_records, callsign + ' QSO Rate',
