@@ -275,7 +275,7 @@ def plot_qsos_rate(date_records, title, filename=None, start_date=None, end_date
 
     fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True)
     ax = fig.add_subplot(111, facecolor=BG)
-    ax.set_title(title, color=FG, size=48, weight='bold')
+    ax.set_title(title, color=FG, size='xx-large', weight='bold')
 
     dates, data = make_bins(dates, data)
 
@@ -453,7 +453,7 @@ def plot_challenge_bands_by_date(date_records, title, filename=None, start_date=
     ax = fig.add_subplot(111, facecolor=BG)
 
     axb = ax.twinx()
-    ax.set_title(title, color=FG, size=48, weight='bold')
+    ax.set_title(title, color=FG, size='xx-large', weight='bold')
 
     dates = matplotlib.dates.date2num(data[0])
     if start_date is None:

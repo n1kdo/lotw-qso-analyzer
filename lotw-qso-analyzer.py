@@ -267,9 +267,6 @@ def crunch_data(callsign, qso_list):
 
 def draw_charts(date_records, callsign, start_date=None, end_date=None):
     logging.debug('draw_charts')
-    #start_date = datetime.datetime.strptime('20070101', '%Y%m%d').date()
-    #start_date = datetime.datetime.strptime('20140101', '%Y%m%d').date()
-    #end_date   = datetime.datetime.strptime('20181231', '%Y%m%d').date()
 
     callsign = callsign.upper()
 
@@ -389,7 +386,13 @@ def main():
     adif.write_adif_file(qso_list, callsign + '-combined.adif')
 
     date_records = crunch_data('N1KDO', qso_list)
-    draw_charts(date_records, callsign);
+    start_date = None
+    end_date = None
+    #start_date = datetime.datetime.strptime('20070101', '%Y%m%d').date()
+    #start_date = datetime.datetime.strptime('20180101', '%Y%m%d').date()
+    #end_date   = datetime.datetime.strptime('20181231', '%Y%m%d').date()
+
+    draw_charts(date_records, callsign, start_date=start_date, end_date=end_date)
 
     logging.info('done.')
 
