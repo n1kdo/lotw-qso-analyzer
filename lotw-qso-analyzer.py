@@ -34,7 +34,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import datetime
 import logging
 import time
-import sys
 
 import adif
 import qso_charts
@@ -42,10 +41,10 @@ import qso_charts
 __author__ = 'Jeffrey B. Otterson, N1KDO'
 __copyright__ = 'Copyright 2017 Jeffrey B. Otterson'
 __license__ = 'Simplified BSD'
-__version__ = '0.02'
+__version__ = '0.03'
 
 logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S',
-                    level=logging.DEBUG)
+                    level=logging.INFO)
 logging.Formatter.converter = time.gmtime
 
 BANDS = ['160M', '80M', '60M', '40M', '30M', '20M', '17M', '15M', '12M', '10M', '6M', '2M', '70CM']
@@ -265,8 +264,9 @@ def crunch_data(callsign, qso_list):
     return results
 
 
-def draw_charts(date_records, callsign, start_date=None, end_date=None):
+def draw_charts(qso_list, callsign, start_date=None, end_date=None):
     logging.debug('draw_charts')
+    date_records = crunch_data('N1KDO', qso_list)
 
     callsign = callsign.upper()
 
@@ -286,6 +286,9 @@ def draw_charts(date_records, callsign, start_date=None, end_date=None):
                                    start_date=start_date, end_date=end_date)
     qso_charts.plot_challenge_bands_by_date(date_records, callsign + ' Challenge Band Slots',
                                             callsign + '_challenge_bands_by_date.png', start_date=start_date, end_date=end_date)
+
+    qso_charts.plot_map(qso_list, callsign + ' Grid Squares Worked',
+                        callsign + '_grids_map.png', start_date=start_date, end_date=end_date)
 
 
 def compare_lists(qso_list, cards_list):
@@ -342,8 +345,14 @@ def main():
         callsign = 'n1kdo'
         lotw_filename = callsign + '.adif'
         cards_filename = callsign + '-cards.adif'
-        qso_list = adif.read_adif_file(lotw_filename)
-        qsl_cards = adif.read_adif_file(cards_filename)
+        qso_list = adif.read_adif_file_1(lotw_filename)
+        qsl_cards = adif.read_adif_file_2(cards_filename)
+        qso_list = combine_qsos(qso_list, qsl_cards)
+        adif.write_adif_file(qso_list, callsign + '-combined.adif')
+
+    if False:
+        callsign = 'n1kdo'
+        qso_list = adif.read_adif_file_2(callsign + '-combined.adif')
 
     while qso_list is None:
         print('If you already have a downloaded ADIF data file from LoTW, that can be used,')
@@ -376,24 +385,20 @@ def main():
                 qsl_cards = adif.get_qsl_cards(callsign, password, callsign + '-cards.adif')
                 print('Please wait while your data is crunched.')
             except Exception as ex:
-                e = sys.exc_info()[0]
-                print('Problem downloading from LoTW...' + e)
+                #  e = sys.exc_info()[0]
+                print('Problem downloading from LoTW...' + ex)
                 print()
             else:
                 break
+        qso_list = combine_qsos(qso_list, qsl_cards)
+        adif.write_adif_file(qso_list, callsign + '-combined.adif')
 
-    qso_list = combine_qsos(qso_list, qsl_cards)
-    adif.write_adif_file(qso_list, callsign + '-combined.adif')
-
-    date_records = crunch_data('N1KDO', qso_list)
     start_date = None
     end_date = None
     #start_date = datetime.datetime.strptime('20070101', '%Y%m%d').date()
     #start_date = datetime.datetime.strptime('20180101', '%Y%m%d').date()
     #end_date   = datetime.datetime.strptime('20181231', '%Y%m%d').date()
-
-    draw_charts(date_records, callsign, start_date=start_date, end_date=end_date)
-
+    draw_charts(qso_list, callsign, start_date=start_date, end_date=end_date)
     logging.info('done.')
 
 

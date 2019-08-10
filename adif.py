@@ -1,7 +1,8 @@
 import logging
 import re
-import sys
-import urllib.request, urllib.parse, urllib.error
+import urllib.error
+import urllib.parse
+import urllib.request
 
 """
 adif.py -- read/write/fetch from LoTW 
@@ -11,6 +12,8 @@ adif data is stored with each qso as a dict,
 There are no special checks for correctness.
 field length and type data is ignored on read, 
 and no type data is emitted when new adif is created.
+
+well.  maybe you can use it with the new slower parser.
 
 you probably should not use this.  "it works for me."
 """
@@ -42,8 +45,8 @@ def call_lotw(**params):
             print()
             print('...problem')
             print(line)
-            e = sys.exc_info()[0]
-            print('Problem downloading from LoTW...' + e)
+            print(inst)
+            print('Problem downloading from LoTW...')
             pass
 
         line = line.strip()
@@ -93,6 +96,9 @@ def get_qsl_cards(username, password, filename=None):
 def adif_field(s):
     if '<' in s:
         match = re.search(r'^<(.*)>(.*)$', s)
+        if match is None:
+            #print("gah:" + s)
+            return None, None
         if match.group(2):
             payload = match.group(2)
             title = match.group(1)
@@ -107,7 +113,88 @@ def adif_field(s):
     return None, None
 
 
+def chars_from_file(filename, chunksize=8192):
+    with open(filename, "rb") as f:
+        while True:
+            chunk = f.read(chunksize)
+            if chunk:
+                for b in chunk:
+                    yield chr(b)
+            else:
+                break
+
+
+def read_adif_file_2(adif_file_name):
+    """
+    this one does not care about newlines or whitespace... I hope.
+    :param adif_file_name:  the name of the file to read.
+    :return:
+    """
+    qsos = []
+    qso = {}
+    # parse adif, bytewise.  state machine:
+    # 0 / clear  not copying
+    # 1 / name
+    # 2 / size
+    # 3 / type
+    # 4 / value
+    element_name = ''
+    element_size = ''
+    element_value = ''
+    element_type = ''
+    state = 0
+    bytes_to_copy = 0;
+
+    for c in chars_from_file(adif_file_name):
+        if state == 0:  # not parsing adif data from file.
+            if c == '<':
+                element_name = ''
+                state = 1
+        elif state == 1:  # copying name
+            if c == ':':  # end of name, start of size
+                element_size = ''
+                state = 2
+            elif c == '>':  # end of name, no size, not data, must be header
+                if element_name == 'eoh':
+                    qso = {}
+                elif element_name == 'eor':
+                    qsos.append(qso)
+                    qso = {}
+                state = 0
+            else:  # keep copying the name.
+                element_name += c
+        elif state == 2:  # copying size
+            if c == ':':  # end of size, start of type
+                element_type = ''
+                bytes_to_copy = int(element_size.strip())
+                state = 3
+            elif c == '>':
+                element_value = ''
+                bytes_to_copy = int(element_size.strip())
+                state = 4
+            else:
+                element_size += c
+        elif state == 3:  # copying type
+            if c == '>':
+                element_value = ''
+                state = 4
+            else:
+                element_type += c
+        elif state == 4:  # copying value.
+            if bytes_to_copy > 0:
+                element_value += c
+                bytes_to_copy -= 1
+            if bytes_to_copy == 0:
+                qso[element_name.lower()] = element_value
+                state = 0  # start new adif value.
+    return qsos
+
+
 def read_adif_file(adif_file_name):
+    return read_adif_file_2(adif_file_name)
+
+
+def read_adif_file_1(adif_file_name):
     logging.debug('read_adif_file %s' % adif_file_name)
     f = open(adif_file_name)
     qso = {}
@@ -149,6 +236,7 @@ def write_adif_file(qsos, adif_file_name):
                  'mode',
                  'qso_date',
                  'qsl_rcvd',
+                 'submode',
                  ]
     ignore_keys = ['app_lotw_2xqsl',
                    'app_lotw_dxcc_application_nr',

@@ -18,7 +18,9 @@ over time.
 
 ![Example](N1KDO_challenge_bands_by_date.png)
 
+![Example](N1KDO_grids_map.png)
+
 I might do more work on this, or I might not.  
 I'm putting it on GitHub because others might find it useful.  
 
-n1kdo 20181226
+n1kdo 20190810

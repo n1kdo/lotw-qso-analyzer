@@ -8,8 +8,12 @@ from matplotlib.ticker import FormatStrFormatter
 import matplotlib.pyplot as plt
 import matplotlib.backends.backend_agg as agg
 
-WIDTH_INCHES = 12
-HEIGHT_INCHES = 8
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
+import shapely.geometry as sgeom
+
+WIDTH_INCHES = 16
+HEIGHT_INCHES = 9
 FG = 'k'
 BG = 'w'
 
@@ -296,9 +300,7 @@ def plot_qsos_rate(date_records, title, filename=None, start_date=None, end_date
     offsets = np.zeros((len(dates)), np.int32)
     colors = ['#990000', '#ff6600', '#00ff00', '#0000ff']
     labels = ['DXCC Entity', 'Challenge', 'Confirmed', 'Worked']
-    print('delta=', delta)
-    width = delta / 365
-    print('width=', width)
+    width = delta / 365  # guess
     d = np.array(data[3])
     ax.bar(dates, d, width, bottom=offsets, color=colors[3], label=labels[3])
     offsets += d
@@ -378,7 +380,7 @@ def plot_qsos_band_rate(date_records, title, filename=None, start_date=None, end
 
     fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True)
     ax = fig.add_subplot(111, facecolor=BG)
-    ax.set_title(title, color=FG, size=48, weight='bold')
+    ax.set_title(title, color=FG, size='xx-large', weight='bold')
 
     dates = matplotlib.dates.date2num(dates)
     if start_date is None:
@@ -472,7 +474,7 @@ def plot_challenge_bands_by_date(date_records, title, filename=None, start_date=
 
     ax.tick_params(axis='y', colors=FG, which='both', direction='out', right=False)
     ax.tick_params(axis='x', colors=FG, which='both', direction='out', top=False)
-    ax.set_ylabel('QSOs', color=FG, size='x-large', weight='bold')
+    ax.set_ylabel('DXCCs', color=FG, size='x-large', weight='bold')
     ax.set_xlabel('Date', color=FG, size='x-large', weight='bold')
 
     ax.xaxis.set_major_locator(YearLocator())
@@ -503,6 +505,79 @@ def plot_challenge_bands_by_date(date_records, title, filename=None, start_date=
         plt.show()
     plt.close(fig)
     logging.debug('plot_challenge_bands_by_date(...,%s, %s) done' % (title, filename))
+    return
+
+
+def grid_square_box(grid):
+    grid = grid.upper()
+    ord_A = ord('A')
+    ord_0 = ord('0')
+    lon = (ord(grid[0]) - ord_A) * 20
+    lon += (ord(grid[2]) - ord_0) * 2
+    lat = (ord(grid[1]) - ord_A) * 10
+    lat += (ord(grid[3]) - ord_0)
+    lon -= 180
+    lat -= 90
+    return sgeom.box(lon, lat, lon+2, lat+1)
+
+
+def plot_map(qsos, title, filename=None, start_date=None, end_date=None):
+    """
+    make the chart
+    """
+    logging.debug('plot_map(...,%s, %s)' % (title, filename))
+    grids = {}
+    for qso in qsos:
+        grid = qso.get('gridsquare')
+        if grid is not None:
+            grid = grid[0:4].upper()
+            if grid not in grids:
+                grids[grid] = 0
+            grids[grid] += 1
+
+    fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True)
+    ax = fig.add_axes([0, 0, 1, 1], projection=ccrs.PlateCarree())
+    #ax.set_extent([-125, -66.5, 20, 50], ccrs.Geodetic())
+
+    #ax = plt.axes(projection=ccrs.PlateCarree())
+    # ax.coastlines()
+    ax.stock_img()
+    ax.add_feature(cfeature.LAND)
+    ax.add_feature(cfeature.COASTLINE)
+    ax.add_feature(cfeature.BORDERS)
+    ax.set_title(title, color=FG, size='xx-large', weight='bold')
+
+    for grid in grids.keys():
+        box = grid_square_box(grid)
+        ax.add_geometries([box], ccrs.PlateCarree(), alpha='0.5', facecolor='red', edgecolor='red', linewidth=0.1)
+
+    #ax.grid(True)
+
+    #ax.spines['left'].set_color(FG)
+    #ax.spines['right'].set_color(FG)
+    #ax.spines['bottom'].set_color(FG)
+    #ax.spines['top'].set_color(FG)
+    #ax.tick_params(axis='y', colors=FG, which='both', direction='out', left=True, right=True)
+    #ax.tick_params(axis='x', colors=FG, which='both', direction='out', top=False)
+    #ax.set_ylabel('QSOS', color=FG, size='x-large', weight='bold')
+    #ax.set_xlabel('Year', color=FG, size='x-large', weight='bold')
+
+    #ax.xaxis.set_major_locator(YearLocator())
+    #ax.xaxis.set_minor_locator(MonthLocator())
+    #ax.xaxis.set_major_formatter(DateFormatter('%y'))
+
+    #legend = ax.legend(loc='upper left', facecolor=BG, edgecolor=FG)
+    #for text in legend.get_texts():
+    #    text.set_color(FG)
+
+    if filename is not None:
+        canvas = agg.FigureCanvasAgg(fig)
+        canvas.draw()
+        fig.savefig(filename, facecolor=BG)
+    else:
+        plt.show()
+    plt.close(fig)
+    logging.debug('plot_map(...,%s, %s) done' % (title, filename))
     return
 
 
