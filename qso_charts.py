@@ -11,6 +11,8 @@ import matplotlib.backends.backend_agg as agg
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import shapely.geometry as sgeom
+import cartopy.io.shapereader as shapereader
+import cartopy.io.img_tiles as img_tiles
 
 WIDTH_INCHES = 16
 HEIGHT_INCHES = 9
@@ -527,6 +529,7 @@ def plot_map(qsos, title, filename=None, start_date=None, end_date=None):
     """
     logging.debug('plot_map(...,%s, %s)' % (title, filename))
     grids = {}
+    most = 0
     for qso in qsos:
         grid = qso.get('gridsquare')
         if grid is not None:
@@ -534,41 +537,47 @@ def plot_map(qsos, title, filename=None, start_date=None, end_date=None):
             if grid not in grids:
                 grids[grid] = 0
             grids[grid] += 1
+            if grids[grid] > most:
+                most = grids[grid]
 
-    fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True)
-    ax = fig.add_axes([0, 0, 1, 1], projection=ccrs.PlateCarree())
-    #ax.set_extent([-125, -66.5, 20, 50], ccrs.Geodetic())
+    fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100)
+    projection = ccrs.PlateCarree(central_longitude=-110)
+    ax = fig.add_axes([0, 0, 1, 1], projection=projection)
 
-    #ax = plt.axes(projection=ccrs.PlateCarree())
-    # ax.coastlines()
-    ax.stock_img()
-    ax.add_feature(cfeature.LAND)
-    ax.add_feature(cfeature.COASTLINE)
-    ax.add_feature(cfeature.BORDERS)
+    # ax.stock_img()
+    ax.add_feature(cfeature.LAND, color='white')
+    ax.add_feature(cfeature.OCEAN, color='#afdfef')
+    ax.add_feature(cfeature.LAKES, color='#afdfef')
+    ax.add_feature(cfeature.COASTLINE, linewidth=0.5)
+    ax.add_feature(cfeature.BORDERS, linewidth=0.5)
+
+    # geographic lines: add international date line, equator, etc.
+    map_lines = cfeature.NaturalEarthFeature(
+        category='physical',
+        name='geographic_lines',
+        scale='110m',
+        facecolor='none',
+        edgecolor='black',
+        linewidth=0.5
+        )
+    ax.add_feature(map_lines)
+
     ax.set_title(title, color=FG, size='xx-large', weight='bold')
+
+    color_palette = ['#0b0089', '#4100a0', '#6500aa', '#8500aa', '#a4109c', '#c03486',
+                     '#cf4875', '#e3615f', '#f28047', '#fb9b30', '#ffb804', '#fbdc00', '#f0fb00',
+                     ]
+    num_colors = len(color_palette)
+    scale = most / num_colors
+    scale = max(scale, 1)
 
     for grid in grids.keys():
         box = grid_square_box(grid)
-        ax.add_geometries([box], ccrs.PlateCarree(), alpha='0.5', facecolor='red', edgecolor='red', linewidth=0.1)
-
-    #ax.grid(True)
-
-    #ax.spines['left'].set_color(FG)
-    #ax.spines['right'].set_color(FG)
-    #ax.spines['bottom'].set_color(FG)
-    #ax.spines['top'].set_color(FG)
-    #ax.tick_params(axis='y', colors=FG, which='both', direction='out', left=True, right=True)
-    #ax.tick_params(axis='x', colors=FG, which='both', direction='out', top=False)
-    #ax.set_ylabel('QSOS', color=FG, size='x-large', weight='bold')
-    #ax.set_xlabel('Year', color=FG, size='x-large', weight='bold')
-
-    #ax.xaxis.set_major_locator(YearLocator())
-    #ax.xaxis.set_minor_locator(MonthLocator())
-    #ax.xaxis.set_major_formatter(DateFormatter('%y'))
-
-    #legend = ax.legend(loc='upper left', facecolor=BG, edgecolor=FG)
-    #for text in legend.get_texts():
-    #    text.set_color(FG)
+        count = grids[grid]
+        index = int(count / scale)
+        index = min(index, num_colors - 1)
+        clr = color_palette[index]
+        ax.add_geometries([box], ccrs.PlateCarree(), alpha='0.5', facecolor=clr, edgecolor='red', linewidth=0.1)
 
     if filename is not None:
         canvas = agg.FigureCanvasAgg(fig)
@@ -580,4 +589,146 @@ def plot_map(qsos, title, filename=None, start_date=None, end_date=None):
     logging.debug('plot_map(...,%s, %s) done' % (title, filename))
     return
 
+
+"""
+Every section that is valid for field day, except "DX"
+"""
+CONTEST_SECTIONS = {
+    'AB': 'Alberta',
+    'AK': 'Alaska',
+    'AL': 'Alabama',
+    'AR': 'Arkansas',
+    'AZ': 'Arizona',
+    'BC': 'British Columbia',
+    'CO': 'Colorado',
+    'CT': 'Connecticut',
+    'DE': 'Delaware',
+    'EB': 'East Bay',
+    'EMA': 'Eastern Massachusetts',
+    'ENY': 'Eastern New York',
+    'EPA': 'Eastern Pennsylvania',
+    'EWA': 'Eastern Washington',
+    'GA': 'Georgia',
+    'GTA': 'Greater Toronto Area',
+    'IA': 'Iowa',
+    'ID': 'Idaho',
+    'IL': 'Illinois',
+    'IN': 'Indiana',
+    'KS': 'Kansas',
+    'KY': 'Kentucky',
+    'LA': 'Louisiana',
+    'LAX': 'Los Angeles',
+    'MAR': 'Maritime',
+    'MB': 'Manitoba',
+    'MDC': 'Maryland - DC',
+    'ME': 'Maine',
+    'MI': 'Michigan',
+    'MN': 'Minnesota',
+    'MO': 'Missouri',
+    'MS': 'Mississippi',
+    'MT': 'Montana',
+    'NC': 'North Carolina',
+    'ND': 'North Dakota',
+    'NE': 'Nebraska',
+    'NFL': 'Northern Florida',
+    'NH': 'New Hampshire',
+    'NLI': 'New York City - Long Island',
+    'NL': 'Newfoundland/Labrador',
+    'NM': 'New Mexico',
+    'NNJ': 'Northern New Jersey',
+    'NNY': 'Northern New York',
+    'NT': 'Northern Territories',
+    'NTX': 'North Texas',
+    'NV': 'Nevada',
+    'OH': 'Ohio',
+    'OK': 'Oklahoma',
+    'ONE': 'Ontario East',
+    'ONN': 'Ontario North',
+    'ONS': 'Ontario South',
+    'ORG': 'Orange',
+    'OR': 'Oregon',
+    'PAC': 'Pacific',
+    'PR': 'Puerto Rico',
+    'QC': 'Quebec',
+    'RI': 'Rhode Island',
+    'SB': 'Santa Barbara',
+    'SC': 'South Carolina',
+    'SCV': 'Santa Clara Valley',
+    'SDG': 'San Diego',
+    'SD': 'South Dakota',
+    'SFL': 'Southern Florida',
+    'SF': 'San Francisco',
+    'SJV': 'San Joaquin Valley',
+    'SK': 'Saskatchewan',
+    'SNJ': 'Southern New Jersey',
+    'STX': 'South Texas',
+    'SV': 'Sacramento Valley',
+    'TN': 'Tennessee',
+    'UT': 'Utah',
+    'VA': 'Virginia',
+    'VI': 'Virgin Islands',
+    'VT': 'Vermont',
+    'WCF': 'West Central Florida',
+    'WI': 'Wisconsin',
+    'WMA': 'Western Massachusetts',
+    'WNY': 'Western New York',
+    'WPA': 'Western Pennsylvania',
+    'WTX': 'West Texas',
+    'WV': 'West Virginia',
+    'WWA': 'Western Washington',
+    'WY': 'Wyoming',
+}
+
+
+def plot_map_2(qsos, title, filename=None, start_date=None, end_date=None):
+    """
+    make the map again
+    """
+    logging.debug('plot_map(...,%s, %s)' % (title, filename))
+    fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100)
+
+    projection = ccrs.PlateCarree(central_longitude=-110)
+    ax = fig.add_axes([0, 0, 1, 1], projection=projection)
+    ax.set_extent([-168, -52, 17, 58], ccrs.Geodetic())
+    ax.add_feature(cfeature.OCEAN, color='#000080')
+    ax.add_feature(cfeature.LAKES, color='#000080')
+    ax.add_feature(cfeature.LAND, color='#113311')
+
+    #ax.coastlines('50m')
+    #ax.stock_img()
+    #tiles = img_tiles.Stamen('terrain-background')  #  MapQuestOpenAerial()
+    #ax.add_image(tiles, 6)
+
+    #ax.add_feature(cfeature.RIVERS, color='#3333cc')
+    #ax.add_feature(cfeature.COASTLINE, linewidth=0)
+    #ax.add_feature(cfeature.BORDERS)
+    #ax.add_feature(cfeature.STATES, linewidth=0.5)
+    ax.set_title(title, color=FG, size='xx-large', weight='bold')
+
+    #shapename = 'admin_1_states_provinces_lakes_shp'
+    #states_shp = shapereader.natural_earth(resolution='110m', category='cultural', name=shapename)
+
+    #print(states_shp)
+    #reader = shapereader.Reader(states_shp)
+    #shapes = reader.records()
+    #for shape in shapes:
+        #print(shape.attributes['name'], shape.attributes['postal'])
+
+    for section_name in CONTEST_SECTIONS.keys():
+        shape_file_name = 'shapes/{}.shp'.format(section_name)
+        reader = shapereader.Reader(shape_file_name)
+        shapes = reader.records()
+        shape = next(shapes)
+        shape.attributes['name'] = section_name
+        ax.add_geometries([shape.geometry], projection,  linewidth=0.7, edgecolor="black", facecolor="#006633")
+
+    if filename is not None:
+        canvas = agg.FigureCanvasAgg(fig)
+        canvas.draw()
+        fig.savefig(filename, facecolor=BG)
+    else:
+        plt.show()
+    plt.close(fig)
+    logging.debug('plot_map(...,%s, %s) done' % (title, filename))
+    return
 
