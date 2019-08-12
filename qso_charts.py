@@ -444,11 +444,14 @@ def plot_challenge_bands_by_date(date_records, title, filename=None, start_date=
     data = [[], [], [], [], [], [], [], [], [], [], []]
     totals = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
+    biggest = 0
     for counts in date_records:
         qdate = counts['qdate']
         data[0].append(qdate)
         for i in range(0, len(challenge_bands)):
             totals[i] += counts['challenge_' + challenge_bands[i]]
+            if totals[i] > biggest:
+                biggest = totals[i]
             data[i + 1].append(totals[i])
 
     # {'pad': 0.10}
@@ -465,7 +468,9 @@ def plot_challenge_bands_by_date(date_records, title, filename=None, start_date=
     if end_date is None:
         end_date = dates[-1]
     ax.set_xlim(start_date, end_date)
-    ax.set_ylim(0, 200)
+
+    y_end = (int(biggest / 50) + 1) * 50
+    ax.set_ylim(0, y_end)
 
     for i in range(0, len(challenge_bands)):
         ax.plot_date(dates, data[i + 1], color=colors[i],
