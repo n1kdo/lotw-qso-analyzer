@@ -300,7 +300,7 @@ def plot_qsos_rate(date_records, title, filename=None, start_date=None, end_date
     ax.set_ylim(0, auto_scale(maxy))
 
     offsets = np.zeros((len(dates)), np.int32)
-    colors = ['#990000', '#ff6600', '#00ff00', '#0000ff']
+    colors = ['#ff0000', '#ff6600', '#00ff00', '#0000ff']
     labels = ['DXCC Entity', 'Challenge', 'Confirmed', 'Worked']
     width = delta / 365  # guess
     d = np.array(data[3])

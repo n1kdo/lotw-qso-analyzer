@@ -5,15 +5,13 @@ import urllib.parse
 import urllib.request
 
 """
-adif.py -- read/write/fetch from LoTW 
+adif.py -- read/write/fetch from LoTW  and adif files on disk.
 adif data is stored with each qso as a dict, 
   the key name is the adif field name, and
   the value is the field value.
 There are no special checks for correctness.
 field length and type data is ignored on read, 
 and no type data is emitted when new adif is created.
-
-well.  maybe you can use it with the new slower parser.
 
 you probably should not use this.  "it works for me."
 """
@@ -97,7 +95,6 @@ def adif_field(s):
     if '<' in s:
         match = re.search(r'^<(.*)>(.*)$', s)
         if match is None:
-            #print("gah:" + s)
             return None, None
         if match.group(2):
             payload = match.group(2)
@@ -124,9 +121,9 @@ def chars_from_file(filename, chunksize=8192):
                 break
 
 
-def read_adif_file_2(adif_file_name):
+def read_adif_file(adif_file_name):
     """
-    this one does not care about newlines or whitespace... I hope.
+    adif file reader/parser.
     :param adif_file_name:  the name of the file to read.
     :return:
     """
@@ -143,75 +140,54 @@ def read_adif_file_2(adif_file_name):
     element_value = ''
     element_type = ''
     state = 0
-    bytes_to_copy = 0;
+    bytes_to_copy = 0
 
-    for c in chars_from_file(adif_file_name):
-        if state == 0:  # not parsing adif data from file.
-            if c == '<':
-                element_name = ''
-                state = 1
-        elif state == 1:  # copying name
-            if c == ':':  # end of name, start of size
-                element_size = ''
-                state = 2
-            elif c == '>':  # end of name, no size, not data, must be header
-                if element_name == 'eoh':
-                    qso = {}
-                elif element_name == 'eor':
-                    qsos.append(qso)
-                    qso = {}
-                state = 0
-            else:  # keep copying the name.
-                element_name += c
-        elif state == 2:  # copying size
-            if c == ':':  # end of size, start of type
-                element_type = ''
-                bytes_to_copy = int(element_size.strip())
-                state = 3
-            elif c == '>':
-                element_value = ''
-                bytes_to_copy = int(element_size.strip())
-                state = 4
-            else:
-                element_size += c
-        elif state == 3:  # copying type
-            if c == '>':
-                element_value = ''
-                state = 4
-            else:
-                element_type += c
-        elif state == 4:  # copying value.
-            if bytes_to_copy > 0:
-                element_value += c
-                bytes_to_copy -= 1
-            if bytes_to_copy == 0:
-                qso[element_name.lower()] = element_value
-                state = 0  # start new adif value.
-    return qsos
-
-
-def read_adif_file(adif_file_name):
-    return read_adif_file_2(adif_file_name)
-
-
-def read_adif_file_1(adif_file_name):
-    logging.debug('read_adif_file %s' % adif_file_name)
-    f = open(adif_file_name)
-    qso = {}
-    qsos = []
-    for line in iter(f):
-        item_name, item_value = adif_field(line.strip())
-        if item_value is None:  # header field.
-            if item_name is not None:
-                if item_name == 'eor':
-                    qsos.append(qso)
-                    qso = {}
-                if item_name == 'eoh':
-                    qsos = []
-                    qso = {}
-        else:
-            qso[item_name] = item_value
-    logging.debug('read %d records from %s' % (len(qsos), adif_file_name))
+    try:
+        for c in chars_from_file(adif_file_name):
+            if state == 0:  # not parsing adif data from file.
+                if c == '<':
+                    element_name = ''
+                    state = 1
+            elif state == 1:  # copying name
+                if c == ':':  # end of name, start of size
+                    element_size = ''
+                    state = 2
+                elif c == '>':  # end of name, no size, not data, must be header
+                    if element_name == 'eoh':
+                        qso = {}
+                    elif element_name == 'eor':
+                        qsos.append(qso)
+                        qso = {}
+                    state = 0
+                else:  # keep copying the name.
+                    element_name += c
+            elif state == 2:  # copying size
+                if c == ':':  # end of size, start of type
+                    element_type = ''
+                    bytes_to_copy = int(element_size.strip())
+                    state = 3
+                elif c == '>':
+                    element_value = ''
+                    bytes_to_copy = int(element_size.strip())
+                    state = 4
+                else:
+                    element_size += c
+            elif state == 3:  # copying type
+                if c == '>':
+                    element_value = ''
+                    state = 4
+                else:
+                    element_type += c
+            elif state == 4:  # copying value.
+                if bytes_to_copy > 0:
+                    element_value += c
+                    bytes_to_copy -= 1
+                if bytes_to_copy == 0:
+                    qso[element_name.lower()] = element_value
+                    state = 0  # start new adif value.
+    except FileNotFoundError:
+        logging.warning('could not read file {}'.format(adif_file_name))
+        pass
     return qsos
 
 

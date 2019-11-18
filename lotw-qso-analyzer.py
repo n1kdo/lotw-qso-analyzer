@@ -44,10 +44,12 @@ __license__ = 'Simplified BSD'
 __version__ = '0.03'
 
 logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S',
-                    level=logging.INFO)
+                    level=logging.DEBUG)
 logging.Formatter.converter = time.gmtime
 
-BANDS = ['160M', '80M', '60M', '40M', '30M', '20M', '17M', '15M', '12M', '10M', '6M', '2M', '70CM']
+BANDS = ['2190M', '630M', '560M', '160M',
+         '80M', '60M', '40M', '30M', '20M', '17M', '15M', '12M', '10M',
+         '6M', '2M', '1.25M', '70CM']
 
 
 def date_range(start_date, end_date):
@@ -266,29 +268,33 @@ def crunch_data(callsign, qso_list):
 
 def draw_charts(qso_list, callsign, start_date=None, end_date=None):
     logging.debug('draw_charts')
-    date_records = crunch_data('N1KDO', qso_list)
-
     callsign = callsign.upper()
 
-    # now draw the charts
-    qso_charts.plot_qsos_by_date(date_records, callsign + ' QSOs',
-                                 callsign + '_qsos_by_date.png',
-                                 start_date=start_date,
-                                 end_date=end_date)
-    qso_charts.plot_dxcc_qsos(date_records, callsign + ' DXCC and Challenge QSLs',
-                              callsign + '_dxcc_qsos.png', start_date=start_date,
-                              end_date=end_date)
-    qso_charts.plot_qsos_rate(date_records, callsign + ' QSO Rate',
-                              callsign + '_qso_rate.png', start_date=start_date,
-                              end_date=end_date)
-    qso_charts.plot_qsos_band_rate(date_records, callsign + ' QSO by Band',
-                                   callsign + '_qsos_band_rate.png',
-                                   start_date=start_date, end_date=end_date)
-    qso_charts.plot_challenge_bands_by_date(date_records, callsign + ' Challenge Band Slots',
-                                            callsign + '_challenge_bands_by_date.png', start_date=start_date, end_date=end_date)
+    if True:
+        date_records = crunch_data(callsign, qso_list)
+
+        # now draw the charts
+        qso_charts.plot_qsos_by_date(date_records, callsign + ' QSOs',
+                                     callsign + '_qsos_by_date.png',
+                                     start_date=start_date,
+                                     end_date=end_date)
+        qso_charts.plot_dxcc_qsos(date_records, callsign + ' DXCC and Challenge QSLs',
+                                  callsign + '_dxcc_qsos.png', start_date=start_date,
+                                  end_date=end_date)
+        qso_charts.plot_qsos_rate(date_records, callsign + ' QSO Rate',
+                                  callsign + '_qso_rate.png', start_date=start_date,
+                                  end_date=end_date)
+        qso_charts.plot_qsos_band_rate(date_records, callsign + ' QSO by Band',
+                                       callsign + '_qsos_band_rate.png',
+                                       start_date=start_date, end_date=end_date)
+        qso_charts.plot_challenge_bands_by_date(date_records, callsign + ' Challenge Band Slots',
+                                                callsign + '_challenge_bands_by_date.png', start_date=start_date, end_date=end_date)
 
     qso_charts.plot_map(qso_list, callsign + ' Grid Squares Worked',
                         callsign + '_grids_map.png', start_date=start_date, end_date=end_date)
+
+    qso_charts.plot_map_2(qso_list, callsign + ' Test Map',
+                        callsign + '_test_map.png', start_date=start_date, end_date=end_date)
 
 
 def compare_lists(qso_list, cards_list):
@@ -319,12 +325,12 @@ def combine_qsos(qso_list, qsl_cards):
                     # print('QSO to QSL: %s %s %s %s' % (card['call'], card['band'], card['qso_date'], card['country']))
                     qso['dxcc'] = card['dxcc']
                     qso['country'] = card['country']
-                    qso['credit_granted'] = card['credit_granted']
-                    qso['app_lotw_deleted_entity'] = card['app_lotw_deleted_entity']
-                    qso['app_lotw_credit_granted'] = card['app_lotw_credit_granted']
+                    copy_qso_data(card, qso, 'credit_granted')
+                    copy_qso_data(card, qso, 'app_lotw_deleted_entity')
+                    copy_qso_data(card, qso, 'app_lotw_credit_granted')
                     qso['qsl_rcvd'] = 'y'
                     qso['app_n1kdo_qso_combined'] = 'qslcards detail added'
-                    updated_qsls.append(qso);
+                    updated_qsls.append(qso)
         if not found:
             # print('QSL added from card: %s %s %s %s' % (card['call'], card['band'], card['qso_date'], card['country']))
             card['app_n1kdo_qso_combined'] = 'qslcards QSL added'
@@ -335,24 +341,32 @@ def combine_qsos(qso_list, qsl_cards):
     return qso_list
 
 
+def copy_qso_data(qso_from, qso_to, key):
+    data = qso_from.get(key)
+    if data is not None:
+        qso_to[key] = data
+    else:
+        print('no key {} in {}'.format(key, qso_from))
+
+
 def main():
     print('N1KDO\'s LoTW ADIF analyzer version %s' % __version__)
     qso_list = None
     qsl_cards = None
 
     # uncomment these next ~8 lines to test
-    if True:
+    if False:
         callsign = 'n1kdo'
         lotw_filename = callsign + '.adif'
-        cards_filename = callsign + '-cards.adif'
-        qso_list = adif.read_adif_file_1(lotw_filename)
-        qsl_cards = adif.read_adif_file_2(cards_filename)
+        cards_filename = callsign + '-dxcc.adif'
+        qso_list = adif.read_adif_file(lotw_filename)
+        qsl_cards = adif.read_adif_file(cards_filename)
         qso_list = combine_qsos(qso_list, qsl_cards)
         adif.write_adif_file(qso_list, callsign + '-combined.adif')
 
-    if False:
+    if True:
         callsign = 'n1kdo'
-        qso_list = adif.read_adif_file_2(callsign + '-combined.adif')
+        qso_list = adif.read_adif_file(callsign + '-combined.adif')
 
     while qso_list is None:
         print('If you already have a downloaded ADIF data file from LoTW, that can be used,')
@@ -367,12 +381,10 @@ def main():
                 if callsign == '':
                     continue
                 qso_list = adif.read_adif_file(callsign + '.adif')
-                qsl_cards = adif.read_adif_file(callsign + '-cards.adif')
+                qsl_cards = adif.read_adif_file(callsign + '-dxcc.adif')
             except:
                 print('Problem reading ADIF file %s' % adif_file_name)
                 print()
-            else:
-                break
         else:
             callsign = input1('Please enter your LoTW callsign : ')
             password = input1('Please enter your LoTW password : ')
@@ -388,8 +400,6 @@ def main():
                 #  e = sys.exc_info()[0]
                 print('Problem downloading from LoTW...' + ex)
                 print()
-            else:
-                break
         qso_list = combine_qsos(qso_list, qsl_cards)
         adif.write_adif_file(qso_list, callsign + '-combined.adif')
 
