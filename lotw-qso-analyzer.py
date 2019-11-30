@@ -293,9 +293,6 @@ def draw_charts(qso_list, callsign, start_date=None, end_date=None):
     qso_charts.plot_map(qso_list, callsign + ' Grid Squares Worked',
                         callsign + '_grids_map.png', start_date=start_date, end_date=end_date)
 
-    qso_charts.plot_map_2(qso_list, callsign + ' Test Map',
-                        callsign + '_test_map.png', start_date=start_date, end_date=end_date)
-
 
 def compare_lists(qso_list, cards_list):
     qsos = {}
@@ -364,7 +361,7 @@ def main():
         qso_list = combine_qsos(qso_list, qsl_cards)
         adif.write_adif_file(qso_list, callsign + '-combined.adif')
 
-    if True:
+    if False:
         callsign = 'n1kdo'
         qso_list = adif.read_adif_file(callsign + '-combined.adif')
 
