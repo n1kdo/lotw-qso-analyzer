@@ -11,15 +11,11 @@ import matplotlib.backends.backend_agg as agg
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import shapely.geometry as sgeom
-import cartopy.io.shapereader as shapereader
-import cartopy.io.img_tiles as img_tiles
 
 WIDTH_INCHES = 16
 HEIGHT_INCHES = 9
 FG = 'k'
 BG = 'w'
-
-# plt.ioff()
 
 
 def auto_scale(val):
@@ -210,7 +206,7 @@ def plot_dxcc_qsos(date_records, title, filename=None, start_date=None, end_date
     yticks = [0, 50, 100, 150, 200, 250, 300, 350]
     # yticks.append(total_dxcc_data[-1])
     ax.set_yticks(yticks)
-    minor_ticks = [340,total_dxcc_data[-1]]
+    minor_ticks = [340, total_dxcc_data[-1]]
     ax.set_yticks(minor_ticks, minor=True)  # current number of dxcc entities
     ax.yaxis.set_minor_formatter(FormatStrFormatter('%d'))
 
@@ -331,7 +327,7 @@ def plot_qsos_rate(date_records, title, filename=None, start_date=None, end_date
     ax.xaxis.set_major_locator(YearLocator())
     ax.xaxis.set_minor_locator(MonthLocator())
     ax.xaxis.set_major_formatter(DateFormatter('%Y'))
-    #ax.xaxis.set_minor_formatter(DateFormatter('%M'))
+    # ax.xaxis.set_minor_formatter(DateFormatter('%M'))
 
     legend = ax.legend(loc='upper left', numpoints=1, facecolor=BG, edgecolor=FG)
     for text in legend.get_texts():
@@ -415,7 +411,7 @@ def plot_qsos_band_rate(date_records, title, filename=None, start_date=None, end
     ax.xaxis.set_major_locator(YearLocator())
     ax.xaxis.set_minor_locator(MonthLocator())
     ax.xaxis.set_major_formatter(DateFormatter('%Y'))
-    #ax.xaxis.set_minor_formatter(DateFormatter('%m'))
+    # ax.xaxis.set_minor_formatter(DateFormatter('%m'))
     legend = ax.legend(loc='upper left', numpoints=1, facecolor=BG, edgecolor=FG)
     for text in legend.get_texts():
         text.set_color(FG)

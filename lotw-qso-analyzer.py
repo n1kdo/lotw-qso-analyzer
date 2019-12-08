@@ -44,7 +44,7 @@ __license__ = 'Simplified BSD'
 __version__ = '0.03'
 
 logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S',
-                    level=logging.DEBUG)
+                    level=logging.INFO)
 logging.Formatter.converter = time.gmtime
 
 BANDS = ['2190M', '630M', '560M', '160M',
@@ -81,7 +81,7 @@ def get_yes_no(prompt, default=None):
                 return default
 
 
-def crunch_data(callsign, qso_list):
+def crunch_data(qso_list):
     #    print_csv_data = get_yes_no('Show CSV data for Excel [y/N] : ', False)
     logging.debug('crunch_data')
     logging.info('%5d total LoTW QSOs' % len(qso_list))
@@ -107,6 +107,7 @@ def crunch_data(callsign, qso_list):
         if qso_date is not None:
             confirmed = 0
             new_dxcc = 0
+            new_deleted = 0
             challenge = 0
             n_worked += 1
 
@@ -118,7 +119,12 @@ def crunch_data(callsign, qso_list):
                     confirmed = 1
                     mode = qso.get('app_lotw_modegroup')
                     if qso_dxcc not in dxcc_confirmed:
-                        new_dxcc = 1
+                        dxcc_country = adif.dxcc_countries.get(qso_dxcc) or ('error', True)
+                        deleted = dxcc_country[1]
+                        if deleted:
+                            new_deleted = 1
+                        else:
+                            new_dxcc = 1
                         dxcc_confirmed[qso_dxcc] = {'COUNTRY': qso.get('country'),
                                                     'DXCC': qso_dxcc,
                                                     'MIXED': 0,
@@ -219,7 +225,7 @@ def crunch_data(callsign, qso_list):
         counts['total_confirmed'] = total_confirmed
         counts['total_new_dxcc'] = total_new_dxcc
         counts['total_challenge'] = total_new_challenge
-        #date_records[qdate] = counts  # I think this is redundant.
+        # date_records[qdate] = counts  # I think this is redundant.
     #        print(("%s  %5d  %5d  %5d  %5d  %5d  %5d  %5d  %5d") % (qdate.strftime('%Y-%m-%d'),
     #                                                               counts['worked'],
     #                                                               counts['confirmed'],
@@ -230,8 +236,7 @@ def crunch_data(callsign, qso_list):
     #                                                               counts['challenge'],
     #                                                               counts['total_challenge']))
 
-
-    if False: # show summary data, not needed for charting, but possibly interesting.
+    if False:  # show summary data, not needed for charting, but possibly interesting.
         # top 20 most productive days
         number_of_top_days = 20
         if len(date_records) < number_of_top_days:
@@ -269,27 +274,24 @@ def crunch_data(callsign, qso_list):
 def draw_charts(qso_list, callsign, start_date=None, end_date=None):
     logging.debug('draw_charts')
     callsign = callsign.upper()
+    date_records = crunch_data(qso_list)
 
-    if True:
-        date_records = crunch_data(callsign, qso_list)
-
-        # now draw the charts
-        qso_charts.plot_qsos_by_date(date_records, callsign + ' QSOs',
-                                     callsign + '_qsos_by_date.png',
-                                     start_date=start_date,
-                                     end_date=end_date)
-        qso_charts.plot_dxcc_qsos(date_records, callsign + ' DXCC and Challenge QSLs',
-                                  callsign + '_dxcc_qsos.png', start_date=start_date,
-                                  end_date=end_date)
-        qso_charts.plot_qsos_rate(date_records, callsign + ' QSO Rate',
-                                  callsign + '_qso_rate.png', start_date=start_date,
-                                  end_date=end_date)
-        qso_charts.plot_qsos_band_rate(date_records, callsign + ' QSO by Band',
-                                       callsign + '_qsos_band_rate.png',
-                                       start_date=start_date, end_date=end_date)
-        qso_charts.plot_challenge_bands_by_date(date_records, callsign + ' Challenge Band Slots',
-                                                callsign + '_challenge_bands_by_date.png', start_date=start_date, end_date=end_date)
-
+    # now draw the charts
+    qso_charts.plot_qsos_by_date(date_records, callsign + ' QSOs',
+                                 callsign + '_qsos_by_date.png',
+                                 start_date=start_date,
+                                 end_date=end_date)
+    qso_charts.plot_dxcc_qsos(date_records, callsign + ' DXCC and Challenge QSLs',
+                              callsign + '_dxcc_qsos.png', start_date=start_date,
+                              end_date=end_date)
+    qso_charts.plot_qsos_rate(date_records, callsign + ' QSO Rate',
+                              callsign + '_qso_rate.png', start_date=start_date,
+                              end_date=end_date)
+    qso_charts.plot_qsos_band_rate(date_records, callsign + ' QSO by Band',
+                                   callsign + '_qsos_band_rate.png',
+                                   start_date=start_date, end_date=end_date)
+    qso_charts.plot_challenge_bands_by_date(date_records, callsign + ' Challenge Band Slots',
+                                            callsign + '_challenge_bands_by_date.png', start_date=start_date, end_date=end_date)
     qso_charts.plot_map(qso_list, callsign + ' Grid Squares Worked',
                         callsign + '_grids_map.png', start_date=start_date, end_date=end_date)
 
@@ -302,7 +304,7 @@ def compare_lists(qso_list, cards_list):
 
     for qso in cards_list:
         key = qso['call'] + '.' + qso['qso_date'] + '.' + qso['band'] + '.' + qso.get('app_lotw_modegroup')
-        if not key in qsos:
+        if key not in qsos:
             print("can't find a match for ")
             print(qso)
             print()
@@ -318,7 +320,7 @@ def combine_qsos(qso_list, qsl_cards):
         for qso in qso_list:
             if qso['call'] == card['call'] and qso['qso_date'] == card['qso_date'] and qso['band'] == card['band']:
                 found = True
-                if qso.get('dxcc') == None:
+                if qso.get('dxcc') is None:
                     # print('QSO to QSL: %s %s %s %s' % (card['call'], card['band'], card['qso_date'], card['country']))
                     qso['dxcc'] = card['dxcc']
                     qso['country'] = card['country']
@@ -332,9 +334,9 @@ def combine_qsos(qso_list, qsl_cards):
             # print('QSL added from card: %s %s %s %s' % (card['call'], card['band'], card['qso_date'], card['country']))
             card['app_n1kdo_qso_combined'] = 'qslcards QSL added'
             card['qsl_rcvd'] = 'y'
-            added_qsls.append(card);
+            added_qsls.append(card)
             qso_list.append(card)
-    logging.info('updated %d QSL from cards, added %d QSLs from cards' % ( len(updated_qsls), len(added_qsls)))
+    logging.info('updated %d QSL from cards, added %d QSLs from cards' % (len(updated_qsls), len(added_qsls)))
     return qso_list
 
 
@@ -402,9 +404,9 @@ def main():
 
     start_date = None
     end_date = None
-    #start_date = datetime.datetime.strptime('20070101', '%Y%m%d').date()
-    #start_date = datetime.datetime.strptime('20180101', '%Y%m%d').date()
-    #end_date   = datetime.datetime.strptime('20181231', '%Y%m%d').date()
+    # start_date = datetime.datetime.strptime('20070101', '%Y%m%d').date()
+    # start_date = datetime.datetime.strptime('20180101', '%Y%m%d').date()
+    # end_date   = datetime.datetime.strptime('20181231', '%Y%m%d').date()
     draw_charts(qso_list, callsign, start_date=start_date, end_date=end_date)
     logging.info('done.')
 
