@@ -472,7 +472,7 @@ def plot_challenge_bands_by_date(date_records, title, filename=None, start_date=
         ax.plot_date(dates, data[i + 1], color=colors[i],
                      linestyle=line_styles[i],
                      marker='None',
-                     mew=0, markersize=5, label=challenge_bands[i])
+                     mew=0, markersize=5, label='{:s} ({:d})'.format(challenge_bands[i], totals[i]))
     ax.grid(True)
 
     ax.tick_params(axis='y', colors=FG, which='both', direction='out', right=False)
