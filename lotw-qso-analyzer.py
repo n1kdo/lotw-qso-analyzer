@@ -114,7 +114,8 @@ def crunch_data(qso_list):
             qso_dxcc = qso.get('dxcc')
             qsl_rcvd = qso.get('qsl_rcvd')
             qso_band = qso.get('band')
-            if qso_dxcc is not None:
+            deleted = (qso.get('app_lotw_dxcc_entity_status') or '').lower() == 'deleted'
+            if qso_dxcc is not None and qso_dxcc != '0' and deleted is False:
                 if qsl_rcvd is not None and qsl_rcvd.lower() == 'y':
                     confirmed = 1
                     mode = qso.get('app_lotw_modegroup')
