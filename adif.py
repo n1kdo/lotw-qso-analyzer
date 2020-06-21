@@ -427,6 +427,33 @@ dxcc_countries = {
     '522': ('Republic of Kosovo', False),
 }
 
+adif_mode_to_lotw_modegroup_map = {
+    'AM': 'PHONE',
+    'CW': 'CW',
+    'FM': 'PHONE',
+    'FT8': 'DIGITAL',
+    'MFSK': 'DIGITAL',
+    'JT65': 'DIGITAL',
+    'JT9': 'DIGITAL',
+    'PSK': 'DIGITAL',
+    'RTTY': 'DIGITAL',
+    'SSB': 'PHONE',
+    'SSTV': 'DIGITAL',  # REALLY? FIXME
+}
+
+
+def adif_mode_to_lotw_modegroup(adif_mode):
+    lotw_modegroup = adif_mode_to_lotw_modegroup_map.get(adif_mode.upper())
+    if lotw_modegroup is None:
+        logging.warning('cannot find lotw mode group for adif mode {}, guessing this is DATA'.format(adif_mode))
+        lotw_modegroup = 'DATA'
+    return lotw_modegroup
+
+
+def get_adif_country_name(dxcc):
+    country_tuple = dxcc_countries.get(dxcc) or ('None', False)
+    return country_tuple[0]
+
 
 def call_lotw(**params):
     logging.debug('Calling LoTW')
@@ -473,6 +500,7 @@ def call_lotw(**params):
                     qsos.append(qso)
                     qso = {}
                 if item_name == 'eoh':
+                    header = qso
                     qsos = []
                     qso = {}
         else:
@@ -480,10 +508,12 @@ def call_lotw(**params):
     if adif_file is not None:
         adif_file.close()
     logging.debug('Retrieved %d records from LoTW.' % len(qsos))
-    return qsos
+    return header, qsos
 
 
-def get_lotw_adif(username, password, filename=None):
+def get_lotw_adif(username, password, filename=None, qso_qsorxsince=None):
+    if qso_qsorxsince == None:
+        qso_qsorxsince = '1900-01-01'
     return call_lotw(login=username,
                      password=password,
                      filename=filename,
@@ -491,6 +521,7 @@ def get_lotw_adif(username, password, filename=None):
                      qso_qsl='no',
                      qso_owncall=username,
                      qso_qsldetail='yes',
+                     qso_qsorxsince=qso_qsorxsince,
                      )
 
 
@@ -539,6 +570,7 @@ def read_adif_file(adif_file_name):
     :return:
     """
     qsos = []
+    header = {}
     qso = {}
     # parse adif, bytewise.  state machine:
     # 0 / clear  not copying
@@ -561,10 +593,13 @@ def read_adif_file(adif_file_name):
                     state = 1
             elif state == 1:  # copying name
                 if c == ':':  # end of name, start of size
+                    element_name = element_name.lower()
                     element_size = ''
                     state = 2
                 elif c == '>':  # end of name, no size, not data, must be header
+                    element_name = element_name.lower()
                     if element_name == 'eoh':
+                        header = qso
                         qso = {}
                     elif element_name == 'eor':
                         qsos.append(qso)
@@ -599,7 +634,14 @@ def read_adif_file(adif_file_name):
     except FileNotFoundError:
         logging.warning('could not read file {}'.format(adif_file_name))
         pass
-    return qsos
+    return header, qsos
+
+
+def merge(header, qsos, new_header, new_qsos):
+    header['app_lotw_lastqsorx'] = new_header['app_lotw_lastqsorx']
+    header['app_lotw_numrec'] = str(int(header['app_lotw_numrec']) + int(new_header['app_lotw_numrec']))
+    qsos.append(new_qsos)
+    return header, qsos
 
 
 def write_adif_field(key, item):
@@ -610,7 +652,7 @@ def write_adif_field(key, item):
         return '<{0}>\n'.format(key)
 
 
-def write_adif_file(qsos, adif_file_name):
+def write_adif_file(header, qsos, adif_file_name):
     logging.debug('write_adif_file %s' % adif_file_name)
     save_keys = ['app_lotw_mode',
                  'app_lotw_modegroup',
@@ -639,6 +681,9 @@ def write_adif_file(qsos, adif_file_name):
                    'app_lotw_ituz_inferred',
                    'app_lotw_ituz_invalid',
                    'app_lotw_qslmode',
+                   'app_lotw_qso_timestamp',
+                   'app_lotw_rxqsl',
+                   'app_lotw_rxqso',
                    'band_rx',
                    'cnty',
                    'cqz',

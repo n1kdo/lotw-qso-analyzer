@@ -1,6 +1,6 @@
 #!/usr/bin/python
 """
-lotw-qso-analyzer.py -- get statistics from LoTW QSO ADIF.
+adif-log-analyzer.py -- get statistics from LoTW QSO ADIF.
 data can come from ADIF file downloaded from Logbook of The World, or this
 script can collect the data from LoTW for you, optionally saving the ADIF.
 
@@ -39,9 +39,9 @@ import adif
 import qso_charts
 
 __author__ = 'Jeffrey B. Otterson, N1KDO'
-__copyright__ = 'Copyright 2017 Jeffrey B. Otterson'
+__copyright__ = 'Copyright 2017, 2020 Jeffrey B. Otterson'
 __license__ = 'Simplified BSD'
-__version__ = '0.03'
+__version__ = '0.05'
 
 logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S',
                     level=logging.INFO)
@@ -95,30 +95,53 @@ def crunch_data(qso_list):
         total_counts[band] = 0
         total_counts['challenge_' + band] = 0
 
-    #    unique_calls = {}
+    # unique_calls = {}
     first_date = None
     last_date = None
     n_worked = 0
     n_confirmed = 0
+    n_verified = 0
     n_challenge = 0
+    check_cards = []
 
     for qso in qso_list:
         qso_date = qso.get('qso_date')
         if qso_date is not None:
             confirmed = 0
+            verified = 0
             new_dxcc = 0
             new_deleted = 0
             challenge = 0
             n_worked += 1
 
-            qso_dxcc = qso.get('dxcc')
-            qsl_rcvd = qso.get('qsl_rcvd')
-            qso_band = qso.get('band')
-            deleted = (qso.get('app_lotw_dxcc_entity_status') or '').lower() == 'deleted'
-            if qso_dxcc is not None and qso_dxcc != '0' and deleted is False:
-                if qsl_rcvd is not None and qsl_rcvd.lower() == 'y':
+            qso_dxcc = qso.get('dxcc') or '0'
+            lotw_qsl_rcvd = (qso.get('lotw_qsl_rcvd') or 'N').lower()
+            if lotw_qsl_rcvd == 'y':
+                confirmed = 1
+            elif lotw_qsl_rcvd == 'v':
+                confirmed = 1
+                verified = 1
+            qsl_rcvd = (qso.get('qsl_rcvd') or 'N').lower()
+            if qsl_rcvd == 'y':
+                if qso.get('app_lotw_2xqsl') is not None or qso.get('app_lotw_credit_granted') is not None:
                     confirmed = 1
+                elif confirmed == 0:
+                    check_cards.append(qso)
+
+            elif qsl_rcvd == 'v':
+                confirmed = 1
+                verified = 1
+
+            qso_band = qso.get('band')
+            dxcc_lookup_tuple = adif.dxcc_countries.get(qso_dxcc) or ('None', False)
+            dxcc_name = dxcc_lookup_tuple[0]
+            deleted = dxcc_lookup_tuple[1]
+
+            if qso_dxcc is not None and qso_dxcc != '0' and deleted is False:
+                if confirmed == 1:
                     mode = qso.get('app_lotw_modegroup')
+                    if mode is None:
+                        mode = adif.adif_mode_to_lotw_modegroup(qso.get('mode'))
                     if qso_dxcc not in dxcc_confirmed:
                         dxcc_country = adif.dxcc_countries.get(qso_dxcc) or ('error', True)
                         deleted = dxcc_country[1]
@@ -126,23 +149,25 @@ def crunch_data(qso_list):
                             new_deleted = 1
                         else:
                             new_dxcc = 1
-                        dxcc_confirmed[qso_dxcc] = {'COUNTRY': qso.get('country'),
-                                                    'DXCC': qso_dxcc,
-                                                    'MIXED': 0,
-                                                    'CW': 0,
-                                                    'PHONE': 0,
-                                                    'DATA': 0,
-                                                    '160M': 0,
-                                                    '80M': 0,
-                                                    '40M': 0,
-                                                    '30M': 0,
-                                                    '20M': 0,
-                                                    '17M': 0,
-                                                    '15M': 0,
-                                                    '12M': 0,
-                                                    '10M': 0,
-                                                    '6M': 0
-                                                    }
+                        dxcc_confirmed[qso_dxcc] = {
+                            #'COUNTRY': qso.get('country') or adif.get_adif_country_name(qso_dxcc),
+                            'COUNTRY': dxcc_name,
+                            'DXCC': qso_dxcc,
+                            'MIXED': 0,
+                            'CW': 0,
+                            'PHONE': 0,
+                            'DATA': 0,
+                            '160M': 0,
+                            '80M': 0,
+                            '40M': 0,
+                            '30M': 0,
+                            '20M': 0,
+                            '17M': 0,
+                            '15M': 0,
+                            '12M': 0,
+                            '10M': 0,
+                            '6M': 0
+                            }
                     dxcc_counts = dxcc_confirmed[qso_dxcc]
                     dxcc_counts['MIXED'] = dxcc_counts['MIXED'] + 1
                     if mode in dxcc_counts:
@@ -153,6 +178,7 @@ def crunch_data(qso_list):
                         dxcc_counts[qso_band] = dxcc_counts[qso_band] + 1
 
             n_confirmed += confirmed
+            n_verified += verified
             n_challenge += challenge
 
             if qso_date is not None:
@@ -189,14 +215,15 @@ def crunch_data(qso_list):
             else:
                 logging.warning("Invalid QSO record has no date ", qso)
 
-#            call = qso['call']
-#            if call not in unique_calls:
-#                unique_calls[call] = [qso]
-#            else:
-#                unique_calls[call].append(qso)
+    #            call = qso['call']
+    #            if call not in unique_calls:
+    #                unique_calls[call] = [qso]
+    #            else:
+    #                unique_calls[call].append(qso)
 
     print('%5d counted worked' % n_worked)
     print('%5d confirmed' % n_confirmed)
+    print('%5d verified' % n_verified)
     print('%5d challenge' % n_challenge)
     print('%5d total dxcc' % len(dxcc_confirmed))
     print()
@@ -262,6 +289,19 @@ def crunch_data(qso_list):
         for i in range(0, number_of_top_calls):
             print('%2d %10s %3d' % (i + 1, calls_by_qso[i][0], calls_by_qso[i][1]))
 
+    # dump the dxcc_counts data
+    dxcc_records = dxcc_confirmed.values()
+    dxcc_records = sorted(dxcc_records, key=lambda dxcc: int(dxcc['DXCC']))
+    dxcc_counts_keys = ['COUNTRY', 'DXCC', 'MIXED', 'CW', 'PHONE', 'DATA',
+                        '160M', '80M', '40M', '30M', '20M', '17M', '15M', '12M', '10M', '6M', ]
+    for rec in dxcc_records:
+        print('{:3d} {:36s} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d}'.format(
+            int(rec['DXCC']), rec['COUNTRY'],
+            rec['MIXED'], rec['CW'], rec['PHONE'], rec['DATA'],
+            rec['160M'], rec['80M'], rec['40M'], rec['30M'],
+            rec['20M'], rec['17M'], rec['15M'], rec['12M'],
+            rec['10M'], rec['6M']))
+
     # don't want to sort this more than once.
     # the result is a list of counts dicts
     results = []
@@ -292,7 +332,8 @@ def draw_charts(qso_list, callsign, start_date=None, end_date=None):
                                    callsign + '_qsos_band_rate.png',
                                    start_date=start_date, end_date=end_date)
     qso_charts.plot_challenge_bands_by_date(date_records, callsign + ' Challenge Band Slots',
-                                            callsign + '_challenge_bands_by_date.png', start_date=start_date, end_date=end_date)
+                                            callsign + '_challenge_bands_by_date.png', start_date=start_date,
+                                            end_date=end_date)
     qso_charts.plot_map(qso_list, callsign + ' Grid Squares Worked',
                         callsign + '_grids_map.png', start_date=start_date, end_date=end_date)
 
@@ -349,8 +390,7 @@ def copy_qso_data(qso_from, qso_to, key):
         print('no key {} in {}'.format(key, qso_from))
 
 
-def main():
-    print('N1KDO\'s LoTW ADIF analyzer version %s' % __version__)
+def get_qsos_from_lotw(callsign):
     qso_list = None
     qsl_cards = None
 
@@ -359,49 +399,81 @@ def main():
         callsign = 'n1kdo'
         lotw_filename = callsign + '.adif'
         cards_filename = callsign + '-dxcc.adif'
-        qso_list = adif.read_adif_file(lotw_filename)
+        header, qso_list = adif.read_adif_file(lotw_filename)
         qsl_cards = adif.read_adif_file(cards_filename)
-        qso_list = combine_qsos(qso_list, qsl_cards)
+        header, qso_list = combine_qsos(qso_list, qsl_cards)
         adif.write_adif_file(qso_list, callsign + '-combined.adif')
 
     if False:
         callsign = 'n1kdo'
-        qso_list = adif.read_adif_file(callsign + '-combined.adif')
+        header, qso_list = adif.read_adif_file(callsign + '-combined.adif')
 
     while qso_list is None:
         print('If you already have a downloaded ADIF data file from LoTW, that can be used,')
         print('otherwise, this program will get the data from LoTW for you, and can optionally')
         print('create an ADIF data file for subsequent analysis.')
         print()
+        # have_adif = True  # FIXME
         have_adif = get_yes_no('Do you have a LoTW ADIF file? [y/n] : ')
         if have_adif:
             adif_file_name = ''
             try:
-                callsign = input1('Please enter your LoTW callsign   : ')
+                callsign = 'n1kdo'  # FIXME
+                # callsign = input1('Please enter your LoTW callsign   : ')
                 if callsign == '':
                     continue
-                qso_list = adif.read_adif_file(callsign + '.adif')
-                qsl_cards = adif.read_adif_file(callsign + '-dxcc.adif')
-            except:
+                lotw_header, qso_list = adif.read_adif_file(callsign + '.adif')
+                dxcc_header, qsl_cards = adif.read_adif_file(callsign + '-dxcc.adif')
+            except Exception as e:
                 print('Problem reading ADIF file %s' % adif_file_name)
-                print()
+                print(e)
+                return
         else:
             callsign = input1('Please enter your LoTW callsign : ')
             password = input1('Please enter your LoTW password : ')
-            try:
-                print('Please wait while your data is fetched from Logbook of The World.')
-                print('This could take several minutes.')
-                qso_list = adif.get_lotw_adif(callsign, password, callsign + '.adif')
-                # JEFF creation of filename from unchecked callsign is dangerous. fix this by sanitizing the callsign.
-                print('Fetching DXCC confirmations...')
-                qsl_cards = adif.get_qsl_cards(callsign, password, callsign + '-cards.adif')
-                print('Please wait while your data is crunched.')
-            except Exception as ex:
-                #  e = sys.exc_info()[0]
-                print('Problem downloading from LoTW...' + ex)
-                print()
+            # try:
+            print('Please wait while your data is fetched from Logbook of The World.')
+            print('This could take several minutes.')
+            lotw_header, qso_list = adif.get_lotw_adif(callsign, password, callsign + '.adif')
+            # JEFF creation of filename from unchecked callsign is dangerous. fix this by sanitizing the callsign.
+            print('Fetching DXCC confirmations...')
+            dxcc_header, qsl_cards = adif.get_qsl_cards(callsign, password, callsign + '-cards.adif')
+            print('Please wait while your data is crunched.')
+            # except Exception as ex:
+            #    #  e = sys.exc_info()[0]
+            #    print('Problem downloading from LoTW...' + ex)
+            #    print()
+        if have_adif:
+            fetch_more = False  # FIXME
+            # fetch_more = get_yes_no('Do you want to fetch updated QSOs from LoTW [y/n] : ')
+            if fetch_more:
+                password = input1('Please enter your LoTW password : ')
+                new_filename = callsign + "-new.adif"
+                rx_since = lotw_header.get('app_lotw_lastqsorx')
+                new_header, new_qsos = adif.get_lotw_adif(callsign, password, filename=new_filename,
+                                                          qso_qsorxsince=rx_since)
+                lotw_header, qsos, adif.merge(lotw_header, qsos, new_header, new_qsos)
+
         qso_list = combine_qsos(qso_list, qsl_cards)
-        adif.write_adif_file(qso_list, callsign + '-combined.adif')
+        adif.write_adif_file(lotw_header, qso_list, callsign + '-combined.adif')
+        return qso_list
+
+
+def get_qsos_from_adif(filename):
+    adif_header, qso_list = adif.read_adif_file(filename)
+    return qso_list
+
+
+def main():
+    print('N1KDO\'s ADIF analyzer version %s' % __version__)
+
+    if True:
+        callsign = 'n1kdo'
+        qso_list = get_qsos_from_lotw(callsign)
+    else:
+        callsign = 'n1kdo'
+        filename = 'j:/n1kdo-full-log-export-20200620.adi'
+        qso_list = get_qsos_from_adif(filename)
 
     start_date = None
     end_date = None
