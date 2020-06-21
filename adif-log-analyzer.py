@@ -95,7 +95,7 @@ def crunch_data(qso_list):
         total_counts[band] = 0
         total_counts['challenge_' + band] = 0
 
-    # unique_calls = {}
+    unique_calls = {}
     first_date = None
     last_date = None
     n_worked = 0
@@ -212,14 +212,14 @@ def crunch_data(qso_list):
                     last_date = qdate
                 if first_date is None or qdate < first_date:
                     first_date = qdate
+
+                call = qso['call']
+                if call not in unique_calls:
+                    unique_calls[call] = [qso]
+                else:
+                    unique_calls[call].append(qso)
             else:
                 logging.warning("Invalid QSO record has no date ", qso)
-
-    #            call = qso['call']
-    #            if call not in unique_calls:
-    #                unique_calls[call] = [qso]
-    #            else:
-    #                unique_calls[call].append(qso)
 
     print('%5d counted worked' % n_worked)
     print('%5d confirmed' % n_confirmed)
@@ -264,7 +264,7 @@ def crunch_data(qso_list):
     #                                                               counts['challenge'],
     #                                                               counts['total_challenge']))
 
-    if False:  # show summary data, not needed for charting, but possibly interesting.
+    if True:  # show summary data, not needed for charting, but possibly interesting.
         # top 20 most productive days
         number_of_top_days = 20
         if len(date_records) < number_of_top_days:
@@ -292,10 +292,9 @@ def crunch_data(qso_list):
     # dump the dxcc_counts data
     dxcc_records = dxcc_confirmed.values()
     dxcc_records = sorted(dxcc_records, key=lambda dxcc: int(dxcc['DXCC']))
-    dxcc_counts_keys = ['COUNTRY', 'DXCC', 'MIXED', 'CW', 'PHONE', 'DATA',
-                        '160M', '80M', '40M', '30M', '20M', '17M', '15M', '12M', '10M', '6M', ]
+    print('DXCC Name                                 MIXED    CW PHONE  DATA 160M  80M  40M  30M  20M  17M  15M  12M  10M   6M')
     for rec in dxcc_records:
-        print('{:3d} {:36s} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d}'.format(
+        print(' {:3d} {:36s}  {:4d}  {:4d}  {:4d}  {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d}'.format(
             int(rec['DXCC']), rec['COUNTRY'],
             rec['MIXED'], rec['CW'], rec['PHONE'], rec['DATA'],
             rec['160M'], rec['80M'], rec['40M'], rec['30M'],
@@ -390,7 +389,7 @@ def copy_qso_data(qso_from, qso_to, key):
         print('no key {} in {}'.format(key, qso_from))
 
 
-def get_qsos_from_lotw(callsign):
+def get_qsos_from_lotw():
     qso_list = None
     qsl_cards = None
 
@@ -413,13 +412,11 @@ def get_qsos_from_lotw(callsign):
         print('otherwise, this program will get the data from LoTW for you, and can optionally')
         print('create an ADIF data file for subsequent analysis.')
         print()
-        # have_adif = True  # FIXME
         have_adif = get_yes_no('Do you have a LoTW ADIF file? [y/n] : ')
         if have_adif:
             adif_file_name = ''
             try:
-                callsign = 'n1kdo'  # FIXME
-                # callsign = input1('Please enter your LoTW callsign   : ')
+                callsign = input1('Please enter your LoTW callsign   : ')
                 if callsign == '':
                     continue
                 lotw_header, qso_list = adif.read_adif_file(callsign + '.adif')
@@ -466,12 +463,11 @@ def get_qsos_from_adif(filename):
 
 def main():
     print('N1KDO\'s ADIF analyzer version %s' % __version__)
+    callsign = 'n1kdo'
 
     if True:
-        callsign = 'n1kdo'
-        qso_list = get_qsos_from_lotw(callsign)
+        qso_list = get_qsos_from_lotw()
     else:
-        callsign = 'n1kdo'
         filename = 'j:/n1kdo-full-log-export-20200620.adi'
         qso_list = get_qsos_from_adif(filename)
 

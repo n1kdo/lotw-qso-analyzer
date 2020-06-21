@@ -176,6 +176,9 @@ def plot_dxcc_qsos(date_records, title, filename=None, start_date=None, end_date
         total_dxcc_data.append(counts['total_new_dxcc'])
         total_challenge_data.append(counts['total_challenge'])
 
+    number_dxcc = date_records[-1]['total_new_dxcc']
+    number_challenge = date_records[-1]['total_challenge']
+
     # {'pad': 0.10}
     fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True)
 
@@ -196,11 +199,11 @@ def plot_dxcc_qsos(date_records, title, filename=None, start_date=None, end_date
     lns1 = ax.plot_date(dates, total_dxcc_data, color='r',
                         linestyle='-',
                         marker='None',
-                        mew=0, markersize=5, label='DXCC')
+                        mew=0, markersize=5, label='DXCC ({:d})'.format(number_dxcc))
     lns2 = axb.plot_date(dates, total_challenge_data, color='g',
                          linestyle=':',
                          marker='None',
-                         mew=0, markersize=5, label='Challenge')
+                         mew=0, markersize=5, label='Challenge ({:d})'.format(number_challenge))
     ax.grid(True)
 
     yticks = [0, 50, 100, 150, 200, 250, 300, 350]
