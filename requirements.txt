@@ -1,0 +1,4 @@
+numpy~=1.19.1
+matplotlib~=3.2.2
+cartopy~=0.17.0
+shapely~=1.7.0
