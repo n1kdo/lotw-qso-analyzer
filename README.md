@@ -27,3 +27,8 @@ I'm putting it on GitHub because others might find it useful.
 It is still very much a work-in-progress.  
 
 n1kdo 20200621
+
+### To Run in Docker
+
+`docker build -t lotw-analyzer .`
+`docker run -it lotw-analyzer python adif-log-analyzer.py`
