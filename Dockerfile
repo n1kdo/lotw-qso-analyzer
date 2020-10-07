@@ -1,14 +1,14 @@
 FROM python:3.7
 
-RUN mkdir -p /app
-
-COPY *.py *.iml requirements.txt /app/
-
-WORKDIR /app
-
 RUN apt-get update
 
 RUN apt-get install libgeos++-dev libproj-dev -y
+
+RUN mkdir -p /app
+
+COPY . /app/
+
+WORKDIR /app
 
 RUN pip --disable-pip-version-check install -r requirements.txt
 
@@ -20,4 +20,10 @@ RUN pip uninstall shapely -y
 
 RUN pip install shapely --no-binary shapely
 
-RUN chmod +x *.py
+RUN chmod +x *.py *.sh
+
+RUN mkdir -p /app/output
+
+VOLUME ["/app/output"]
+
+CMD ["./docker-execution.sh"]

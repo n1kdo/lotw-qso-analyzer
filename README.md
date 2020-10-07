@@ -30,5 +30,5 @@ n1kdo 20200621
 
 ### To Run in Docker
 
-`docker build -t lotw-analyzer .`
-`docker run -it lotw-analyzer python adif-log-analyzer.py`
+`docker build -t lotw .`
+`docker run -v output:/app/output/ -it lotw`
