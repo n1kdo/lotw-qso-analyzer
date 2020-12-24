@@ -33,6 +33,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import datetime
 import logging
+import os
+import sys
 import time
 
 import adif
@@ -352,7 +354,7 @@ def get_qsos_from_lotw():
     # uncomment these next ~8 lines to test
     if True:
         callsign = 'n1kdo'
-        lotw_filename = callsign + '.adif'
+        lotw_filename = callsign + '-lotw.adif'
         cards_filename = callsign + '-cards.adif'
         header, qso_list = adif.read_adif_file(lotw_filename)
         cards_header, qsl_cards = adif.read_adif_file(cards_filename)
@@ -410,20 +412,32 @@ def get_qsos_from_adif(filename):
 
 def main():
     print('N1KDO\'s ADIF analyzer version %s' % __version__)
-    callsign = 'n1kdo'
+    callsign = ''
+    filename = ''
+    if len(sys.argv) > 1:
+        callsign = sys.argv[1]
 
-    if True:
-        qso_list = get_qsos_from_lotw()
-    else:
-        filename = 'j:/n1kdo-full-log-export-20200620.adi'
-        qso_list = get_qsos_from_adif(filename)
+    while len(callsign) < 3:
+        callsign = input('enter callsign: ')
 
-    start_date = None
-    end_date = None
-    # start_date = datetime.datetime.strptime('20070101', '%Y%m%d').date()
-    # start_date = datetime.datetime.strptime('20180101', '%Y%m%d').date()
-    # end_date   = datetime.datetime.strptime('20181231', '%Y%m%d').date()
-    draw_charts(qso_list, callsign, start_date=start_date, end_date=end_date)
+    filename = '{}-lotw.adif'.format(callsign)
+
+    while len(filename) < 4:
+        filename = input('Enter adif file name')
+        if not os.path.exists(filename):
+            filename = None
+
+    qso_list = get_qsos_from_adif(filename)
+    logging.info('read {} qsls from {}'.format(len(qso_list), filename))
+
+    if qso_list is not None:
+        start_date = None
+        end_date = None
+        # start_date = datetime.datetime.strptime('20070101', '%Y%m%d').date()
+        # start_date = datetime.datetime.strptime('20180101', '%Y%m%d').date()
+        # end_date   = datetime.datetime.strptime('20181231', '%Y%m%d').date()
+        draw_charts(qso_list, callsign, start_date=start_date, end_date=end_date)
+
     logging.info('done.')
 
 

@@ -735,8 +735,6 @@ def merge(header, qsos, new_header, new_qsos):
     for qso in qsos:
         key = qso_key(qso)
         qso_dict[key] = qso
-    if header.get('app_lotw_lastqsorx') == new_header.get('app_lotw_lastqsorx'):
-        logging.info('Same timestamp for app_lotw_lastqsorx={}, likely nothing new here.'.format(new_header.get('app_lotw_lastqsorx')))
     for new_qso in new_qsos:
         updated = False
         added = False
@@ -763,8 +761,6 @@ def merge(header, qsos, new_header, new_qsos):
         if not added and not updated:
             logging.debug('ignoring QSO: ' + str(new_qso))
 
-    if new_header.get('app_lotw_lastqsorx') is not None:
-        header['app_lotw_lastqsorx'] = new_header.get('app_lotw_lastqsorx')
     header['app_lotw_numrec'] = str(len(qsos))
     logging.info('Added {}, updated {} QSOs'.format(added_count, updated_count))
     return header, sorted(qsos, key=lambda qso: qso_key(qso))
@@ -826,13 +822,9 @@ def write_adif_file(header, qsos, adif_file_name, abridge_results=True):
                    ]
     with open(adif_file_name, 'w') as f:
         f.write('n1kdo lotw-qso-analyzer adif compatible file\n\n')
-        last_qso_date = header.get('app_lotw_lastqsorx')
-        numrec = header.get('app_lotw_numrec')
-        f.write(write_adif_field('programid', 'n1kdo log analyzer'))
-        if last_qso_date is not None:
-            f.write(write_adif_field('app_lotw_lastqsorx', last_qso_date))
-        if numrec is not None:
-            f.write(write_adif_field('app_lotw_numrec', numrec))
+        header['programid'] = 'n1kdo log analyzer'
+        for k in header:
+            f.write(write_adif_field(k, header[k]))
         f.write('<eoh>\n\n')
         for qso in qsos:
             for key, value in qso.items():

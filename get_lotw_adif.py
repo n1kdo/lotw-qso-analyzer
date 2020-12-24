@@ -67,15 +67,17 @@ def get_password(password):
 
 def main():
     #callsign = 'n1kdo'
-    callsign = None
+    callsign = ''
     password = None
     working_dir = ''
-    while callsign is not None and len(callsign) < 3:
-        print('Please enter your callsign: ', end=None)
-        callsign = input()
-        print()
+    while len(callsign) < 3:
+        #print('Please enter your callsign: ', end=None)
+        callsign = input('Please enter your callsign: ')
+        #print()
 
-    lotw_adif_file_name = '{}{}.adif'.format(working_dir, callsign)
+    lotw_adif_file_name = '{}{}-lotw.adif'.format(working_dir, callsign)
+    lotw_adif_new_qsos_file_name = '{}{}-lotw-new-qsos.adif'.format(working_dir, callsign)
+    lotw_adif_new_qsls_file_name = '{}{}-lotw-new-qsls.adif'.format(working_dir, callsign)
     dxcc_qsls_file_name = '{}{}-cards.adif'.format(working_dir, callsign)
 
     lotw_header = None
@@ -83,6 +85,8 @@ def main():
 
     if os.path.exists(lotw_adif_file_name):
         lotw_header, lotw_qsos = adif.read_adif_file(lotw_adif_file_name)
+        if lotw_header.get('app_lotw_lastqsl') is None:
+            lotw_header['app_lotw_lastqsl'] = lotw_header.get('app_lotw_lastqsorx')
     if os.path.exists(dxcc_qsls_file_name):
         dxcc_qsls_header, dxcc_qsl_cards = adif.read_adif_file(dxcc_qsls_file_name)
 
@@ -95,7 +99,9 @@ def main():
             last_qso_date = lotw_header.get('app_lotw_lastqsorx')
             if last_qso_date is not None:
                 print('Last QSO Received {}'.format(last_qso_date))
-            #print(lotw_header)
+            last_qsl_date = lotw_header.get(('app_lotw_lastqsl'))
+            if last_qsl_date is not None:
+                print('Last QSL Received {}'.format(last_qsl_date))
         print('---------------------------------------')
         show_file_info(dxcc_qsls_file_name)
         if dxcc_qsls_header is not None:
@@ -116,14 +122,31 @@ def main():
                 print('Cannot update, no base, download first.')
             else:
                 password = get_password(password)
-                lotw_adif_new_file_name = '{}{}-new.adif'.format(working_dir, callsign)
-                new_lotw_header, new_lotw_qsos = adif.get_lotw_adif(callsign,
-                                                                    password,
-                                                                    filename=lotw_adif_new_file_name,
-                                                                    qso_qsorxsince=last_qso_date)
+                logging.info('fetching new QSOs')
+                new_lotw_qsos_header, new_lotw_qsos = adif.get_lotw_adif(callsign,
+                                                                        password,
+                                                                        filename=lotw_adif_new_qsos_file_name,
+                                                                        qso_qsorxsince=last_qso_date)
                 new_last_qso_date = lotw_header.get('app_lotw_lastqsorx')
                 logging.info('New last QSO Received {}, {} QSO records'.format(new_last_qso_date, len(new_lotw_qsos)))
-                lotw_header, lotw_qsos = adif.merge(lotw_header, lotw_qsos, new_lotw_header, new_lotw_qsos)
+                logging.info('fetching new QSOs')
+                lotw_header, lotw_qsos = adif.merge(lotw_header, lotw_qsos, new_lotw_qsos_header, new_lotw_qsos)
+                if new_lotw_qsos_header.get('app_lotw_lastqsorx') is not None:
+                    lotw_header['app_lotw_lastqsorx'] = new_lotw_qsos_header.get('app_lotw_lastqsorx')
+
+                new_lotw_qsls_header, new_lotw_qsls = adif.call_lotw(login=callsign,
+                                                                     password=password,
+                                                                     filename=lotw_adif_new_qsls_file_name,
+                                                                     qso_owncall=callsign,
+                                                                     qso_qsl='yes',
+                                                                     qso_qsldetail='yes',
+                                                                     qso_qslsince=last_qsl_date,
+                                                                     qso_query='1'
+                                                                     )
+                lotw_header, lotw_qsos = adif.merge(lotw_header, lotw_qsos, new_lotw_qsls_header, new_lotw_qsls)
+                if new_lotw_qsls_header.get('app_lotw_lastqsl') is not None:
+                    lotw_header['app_lotw_lastqsl'] = new_lotw_qsls_header.get('app_lotw_lastqsl')
+
         elif choice == '3':
             password = get_password(password)
             dxcc_qsls_header, dxcc_qsl_cards = adif.get_qsl_cards(callsign, password, dxcc_qsls_file_name)

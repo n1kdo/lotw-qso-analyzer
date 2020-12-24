@@ -581,7 +581,7 @@ def plot_map(qsos, title, filename=None, start_date=None, end_date=None):
         index = int(count / scale)
         index = min(index, num_colors - 1)
         clr = color_palette[index]
-        ax.add_geometries([box], ccrs.PlateCarree(), alpha=0.5, facecolor=clr, edgecolor='red', linewidth=0.1)
+        ax.add_geometries([box], ccrs.PlateCarree(), alpha=0.5, facecolor=clr, edgecolor=clr, linewidth=0)
 
     if filename is not None:
         canvas = agg.FigureCanvasAgg(fig)
