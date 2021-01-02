@@ -134,7 +134,7 @@ def crunch_data(qso_list):
                 confirmed = 1
                 verified = 1
 
-            qso_band = qso.get('band')
+            qso_band = (qso.get('band') or '').upper()
             dxcc_lookup_tuple = adif.dxcc_countries.get(qso_dxcc) or ('None', False)
             dxcc_name = dxcc_lookup_tuple[0]
             deleted = dxcc_lookup_tuple[1]
@@ -420,12 +420,12 @@ def main():
     while len(callsign) < 3:
         callsign = input('enter callsign: ')
 
-    filename = '{}-lotw.adif'.format(callsign)
+    filename = '' #  '{}-lotw.adif'.format(callsign)
 
     while len(filename) < 4:
-        filename = input('Enter adif file name')
+        filename = input('Enter adif file name: ')
         if not os.path.exists(filename):
-            filename = None
+            filename = ''
 
     qso_list = get_qsos_from_adif(filename)
     logging.info('read {} qsls from {}'.format(len(qso_list), filename))

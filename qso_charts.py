@@ -576,12 +576,13 @@ def plot_map(qsos, title, filename=None, start_date=None, end_date=None):
     scale = max(scale, 1)
 
     for grid in grids.keys():
-        box = grid_square_box(grid)
-        count = grids[grid]
-        index = int(count / scale)
-        index = min(index, num_colors - 1)
-        clr = color_palette[index]
-        ax.add_geometries([box], ccrs.PlateCarree(), alpha=0.5, facecolor=clr, edgecolor=clr, linewidth=0)
+        if len(grid) >= 4:
+            box = grid_square_box(grid)
+            count = grids[grid]
+            index = int(count / scale)
+            index = min(index, num_colors - 1)
+            clr = color_palette[index]
+            ax.add_geometries([box], ccrs.PlateCarree(), alpha=0.5, facecolor=clr, edgecolor=clr, linewidth=0)
 
     if filename is not None:
         canvas = agg.FigureCanvasAgg(fig)
