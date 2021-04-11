@@ -33,6 +33,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import datetime
 import logging
+import os
+import sys
 import time
 
 import adif
@@ -44,7 +46,7 @@ __license__ = 'Simplified BSD'
 __version__ = '0.05'
 
 logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S',
-                    level=logging.INFO)
+                    level=logging.DEBUG)
 logging.Formatter.converter = time.gmtime
 
 BANDS = ['2190M', '630M', '560M', '160M',
@@ -132,7 +134,7 @@ def crunch_data(qso_list):
                 confirmed = 1
                 verified = 1
 
-            qso_band = qso.get('band')
+            qso_band = (qso.get('band') or '').upper()
             dxcc_lookup_tuple = adif.dxcc_countries.get(qso_dxcc) or ('None', False)
             dxcc_name = dxcc_lookup_tuple[0]
             deleted = dxcc_lookup_tuple[1]
@@ -225,11 +227,17 @@ def crunch_data(qso_list):
     print('%5d confirmed' % n_confirmed)
     print('%5d verified' % n_verified)
     print('%5d challenge' % n_challenge)
+    for band in BANDS:
+        c = int(total_counts['challenge_' + band])
+        if c > 0:
+            print('{:5d} {}'.format(c, band))
+
     print('%5d total dxcc' % len(dxcc_confirmed))
     print()
     print('%5d unique log dates' % len(date_records))
     print('first QSO date: ' + first_date.strftime('%Y-%m-%d'))
     print('last QSO date: ' + last_date.strftime('%Y-%m-%d'))
+
 
     # now calculate running totals by date
     total_worked = 0
@@ -253,6 +261,7 @@ def crunch_data(qso_list):
         counts['total_confirmed'] = total_confirmed
         counts['total_new_dxcc'] = total_new_dxcc
         counts['total_challenge'] = total_new_challenge
+
         # date_records[qdate] = counts  # I think this is redundant.
     #        print(("%s  %5d  %5d  %5d  %5d  %5d  %5d  %5d  %5d") % (qdate.strftime('%Y-%m-%d'),
     #                                                               counts['worked'],
@@ -288,6 +297,7 @@ def crunch_data(qso_list):
         print()
         for i in range(0, number_of_top_calls):
             print('%2d %10s %3d' % (i + 1, calls_by_qso[i][0], calls_by_qso[i][1]))
+
 
     # dump the dxcc_counts data
     dxcc_records = dxcc_confirmed.values()
@@ -337,71 +347,20 @@ def draw_charts(qso_list, callsign, start_date=None, end_date=None):
                         callsign + '_grids_map.png', start_date=start_date, end_date=end_date)
 
 
-def compare_lists(qso_list, cards_list):
-    qsos = {}
-    for qso in qso_list:
-        key = qso['call'] + '.' + qso['qso_date'] + '.' + qso['band'] + '.' + qso['app_lotw_modegroup']
-        qsos[key] = qso
-
-    for qso in cards_list:
-        key = qso['call'] + '.' + qso['qso_date'] + '.' + qso['band'] + '.' + qso.get('app_lotw_modegroup')
-        if key not in qsos:
-            print("can't find a match for ")
-            print(qso)
-            print()
-
-
-def combine_qsos(qso_list, qsl_cards):
-    logging.debug('combining dxcc qsl card info')
-    # this is brute-force right now.  it could be made faster.
-    updated_qsls = []
-    added_qsls = []
-    for card in qsl_cards:
-        found = False
-        for qso in qso_list:
-            if qso['call'] == card['call'] and qso['qso_date'] == card['qso_date'] and qso['band'] == card['band']:
-                found = True
-                if qso.get('dxcc') is None:
-                    # print('QSO to QSL: %s %s %s %s' % (card['call'], card['band'], card['qso_date'], card['country']))
-                    qso['dxcc'] = card['dxcc']
-                    qso['country'] = card['country']
-                    copy_qso_data(card, qso, 'credit_granted')
-                    copy_qso_data(card, qso, 'app_lotw_deleted_entity')
-                    copy_qso_data(card, qso, 'app_lotw_credit_granted')
-                    qso['qsl_rcvd'] = 'y'
-                    qso['app_n1kdo_qso_combined'] = 'qslcards detail added'
-                    updated_qsls.append(qso)
-        if not found:
-            # print('QSL added from card: %s %s %s %s' % (card['call'], card['band'], card['qso_date'], card['country']))
-            card['app_n1kdo_qso_combined'] = 'qslcards QSL added'
-            card['qsl_rcvd'] = 'y'
-            added_qsls.append(card)
-            qso_list.append(card)
-    logging.info('updated %d QSL from cards, added %d QSLs from cards' % (len(updated_qsls), len(added_qsls)))
-    return qso_list
-
-
-def copy_qso_data(qso_from, qso_to, key):
-    data = qso_from.get(key)
-    if data is not None:
-        qso_to[key] = data
-    else:
-        print('no key {} in {}'.format(key, qso_from))
-
-
 def get_qsos_from_lotw():
     qso_list = None
     qsl_cards = None
 
     # uncomment these next ~8 lines to test
-    if False:
+    if True:
         callsign = 'n1kdo'
-        lotw_filename = callsign + '.adif'
-        cards_filename = callsign + '-dxcc.adif'
+        lotw_filename = callsign + '-lotw.adif'
+        cards_filename = callsign + '-cards.adif'
         header, qso_list = adif.read_adif_file(lotw_filename)
-        qsl_cards = adif.read_adif_file(cards_filename)
-        header, qso_list = combine_qsos(qso_list, qsl_cards)
-        adif.write_adif_file(qso_list, callsign + '-combined.adif')
+        cards_header, qsl_cards = adif.read_adif_file(cards_filename)
+        qso_list = adif.combine_qsos(qso_list, qsl_cards)
+        adif.write_adif_file(header, qso_list, callsign + '-combined.adif')
+        return qso_list
 
     if False:
         callsign = 'n1kdo'
@@ -440,18 +399,8 @@ def get_qsos_from_lotw():
             #    #  e = sys.exc_info()[0]
             #    print('Problem downloading from LoTW...' + ex)
             #    print()
-        if have_adif:
-            fetch_more = False  # FIXME
-            # fetch_more = get_yes_no('Do you want to fetch updated QSOs from LoTW [y/n] : ')
-            if fetch_more:
-                password = input1('Please enter your LoTW password : ')
-                new_filename = callsign + "-new.adif"
-                rx_since = lotw_header.get('app_lotw_lastqsorx')
-                new_header, new_qsos = adif.get_lotw_adif(callsign, password, filename=new_filename,
-                                                          qso_qsorxsince=rx_since)
-                lotw_header, qsos, adif.merge(lotw_header, qsos, new_header, new_qsos)
 
-        qso_list = combine_qsos(qso_list, qsl_cards)
+        qso_list = adif.combine_qsos(qso_list, qsl_cards)
         adif.write_adif_file(lotw_header, qso_list, callsign + '-combined.adif')
         return qso_list
 
@@ -463,20 +412,32 @@ def get_qsos_from_adif(filename):
 
 def main():
     print('N1KDO\'s ADIF analyzer version %s' % __version__)
-    callsign = 'n1kdo'
+    callsign = ''
+    filename = ''
+    if len(sys.argv) > 1:
+        callsign = sys.argv[1]
 
-    if True:
-        qso_list = get_qsos_from_lotw()
-    else:
-        filename = 'j:/n1kdo-full-log-export-20200620.adi'
-        qso_list = get_qsos_from_adif(filename)
+    while len(callsign) < 3:
+        callsign = input('enter callsign: ')
 
-    start_date = None
-    end_date = None
-    # start_date = datetime.datetime.strptime('20070101', '%Y%m%d').date()
-    # start_date = datetime.datetime.strptime('20180101', '%Y%m%d').date()
-    # end_date   = datetime.datetime.strptime('20181231', '%Y%m%d').date()
-    draw_charts(qso_list, callsign, start_date=start_date, end_date=end_date)
+    filename = '' #  '{}-lotw.adif'.format(callsign)
+
+    while len(filename) < 4:
+        filename = input('Enter adif file name: ')
+        if not os.path.exists(filename):
+            filename = ''
+
+    qso_list = get_qsos_from_adif(filename)
+    logging.info('read {} qsls from {}'.format(len(qso_list), filename))
+
+    if qso_list is not None:
+        start_date = None
+        end_date = None
+        # start_date = datetime.datetime.strptime('20070101', '%Y%m%d').date()
+        # start_date = datetime.datetime.strptime('20180101', '%Y%m%d').date()
+        # end_date   = datetime.datetime.strptime('20181231', '%Y%m%d').date()
+        draw_charts(qso_list, callsign, start_date=start_date, end_date=end_date)
+
     logging.info('done.')
 
 
