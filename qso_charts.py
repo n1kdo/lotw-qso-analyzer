@@ -196,18 +196,15 @@ def plot_dxcc_qsos(date_records, title, filename=None, start_date=None, end_date
     ax.set_ylim(0, 350)
     axb.set_ylim(0, 3500)
 
-    lns1 = ax.plot_date(dates, total_dxcc_data, color='r',
-                        linestyle='-',
-                        marker='None',
+    lns1 = ax.plot_date(dates, total_dxcc_data,
+                        fmt='r-',
                         mew=0, markersize=5, label='DXCC ({:d})'.format(number_dxcc))
-    lns2 = axb.plot_date(dates, total_challenge_data, color='g',
-                         linestyle=':',
-                         marker='None',
+    lns2 = axb.plot_date(dates, total_challenge_data,
+                         fmt='g:',
                          mew=0, markersize=5, label='Challenge ({:d})'.format(number_challenge))
     ax.grid(True)
 
     yticks = [0, 50, 100, 150, 200, 250, 300, 350]
-    # yticks.append(total_dxcc_data[-1])
     ax.set_yticks(yticks)
     minor_ticks = [340, total_dxcc_data[-1]]
     ax.set_yticks(minor_ticks, minor=True)  # current number of dxcc entities
@@ -217,10 +214,13 @@ def plot_dxcc_qsos(date_records, title, filename=None, start_date=None, end_date
     ax.tick_params(axis='x', colors=FG, which='both', direction='out', top=False)
     ax.set_ylabel('DXCCs', color='r', size='x-large', weight='bold')
     axb.set_ylabel('Challenge', color='g', size='x-large', weight='bold')
-    challenge_ticks = [1000, 1500, 2000, 2500, 3000, 3500]
+    challenge_ticks = [500, 1000, 1500, 2000, 2500, 3000, 3500]
     axb.set_yticks(challenge_ticks)
-    axb.set_yticks([total_challenge_data[-1]], minor=True)
-    axb.yaxis.set_minor_formatter(FormatStrFormatter('%d'))
+    current_challenge_label_distance = total_challenge_data[-1] % 500
+    print(current_challenge_label_distance)
+    if current_challenge_label_distance > 20 and current_challenge_label_distance < 480:
+        axb.set_yticks([total_challenge_data[-1]], minor=True)
+        axb.yaxis.set_minor_formatter(FormatStrFormatter('%d'))
     axb.tick_params(axis='y', colors=FG, which='both', direction='out', left=False, labelcolor='g')
     ax.set_xlabel('Date', color=FG, size='x-large', weight='bold')
 
@@ -472,9 +472,9 @@ def plot_challenge_bands_by_date(date_records, title, filename=None, start_date=
     ax.set_ylim(0, y_end)
 
     for i in range(0, len(challenge_bands)):
-        ax.plot_date(dates, data[i + 1], color=colors[i],
-                     linestyle=line_styles[i],
-                     marker='None',
+        ax.plot_date(dates, data[i + 1],
+                     color=colors[i],
+                     fmt=line_styles[i],
                      mew=0, markersize=5, label='{:s} ({:d})'.format(challenge_bands[i], totals[i]))
     ax.grid(True)
 

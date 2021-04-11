@@ -2,10 +2,12 @@
 
 `adif-log-analyzer` shows your DXCC QSO progress over time.
 
+There are two scripts of interest here:
+
 The 'get_lotw_adif.py' script can connect to Logbook of the World and download (and update) ADIF files for you, and
 it can download your DXCC "cards" file for all contacts that are confirmed by the DXCC desk.
 
-The 'adif-log-analyzer.py' script will read and crunch the data in the specified ADIF file and create
+The 'adif_log_analyzer.py' script will read and crunch the data in the specified ADIF file and create
 some useful charts from that information.  It can accept LoTW adif, the adif from the 'get_lotw_adif' script, and
 it can use DXKeeper ADIF, too.
 
@@ -35,5 +37,5 @@ It is still very much a work-in-progress.
 `docker build -t lotw .`
 `docker run -v output:/app/output/ -it lotw`
 
-n1kdo 20201210
+n1kdo 20210411
 
