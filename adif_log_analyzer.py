@@ -340,9 +340,13 @@ def draw_charts(qso_list, callsign, start_date=None, end_date=None):
     qso_charts.plot_qsos_rate(date_records, callsign + ' QSO Rate',
                               callsign + '_qso_rate.png', start_date=start_date,
                               end_date=end_date)
-    logging.info('drawing QSO by Band chart')
-    qso_charts.plot_qsos_band_rate(date_records, callsign + ' QSO by Band',
+    logging.info('drawing QSO Rate by Band chart')
+    qso_charts.plot_qsos_band_rate(date_records, callsign + ' QSO Rate by Band',
                                    callsign + '_qsos_band_rate.png',
+                                   start_date=start_date, end_date=end_date)
+    logging.info('drawing QSO Rate by Mode chart')
+    qso_charts.plot_qsos_mode_rate(date_records, callsign + ' QSO Rate by Mode',
+                                   callsign + '_qsos_mode_rate.png',
                                    start_date=start_date, end_date=end_date)
     logging.info('drawing Challenge Band Slots chart')
     qso_charts.plot_challenge_bands_by_date(date_records, callsign + ' Challenge Band Slots',

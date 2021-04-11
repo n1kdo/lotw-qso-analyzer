@@ -12,6 +12,8 @@ import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import shapely.geometry as sgeom
 
+import adif
+
 WIDTH_INCHES = 16
 HEIGHT_INCHES = 9
 FG = 'k'
@@ -427,6 +429,90 @@ def plot_qsos_band_rate(date_records, title, filename=None, start_date=None, end
         plt.show()
     plt.close(fig)
     logging.debug('plot_qsos_band_rate(...,%s, %s) done' % (title, filename))
+    return
+
+
+def plot_qsos_mode_rate(date_records, title, filename=None, start_date=None, end_date=None):
+    """
+    make the chart
+    """
+    logging.debug('plot_qsos_mode_rate(...,%s, %s)' % (title, filename))
+
+    #challenge_bands = ['160M', '80M', '40M', '30M', '20M', '17M', '15M', '12M', '10M', '6M']
+    #colors = ['violet', 'g', 'b', 'c', 'r', '#ffff00', '#ff6600', '#00ff00', '#663300', '#00ffff']
+    # currently there are 4 modes defined in adif.MODES
+    colors = ['r', 'g', 'c', 'b']
+    data = [[], [], [], []]
+    dates = []
+
+    for counts in date_records:
+        qdate = counts['qdate']
+        if (start_date is None or qdate >= start_date) and (end_date is None or qdate <= end_date):
+            dates.append(qdate)
+            sum = 0
+            for i in range(0, len(adif.MODES)):
+                mode_count = counts[adif.MODES[i]]
+                sum += mode_count
+                data[i].append(mode_count)
+
+    dates, data = make_bins(dates, data)
+    maxy = 0
+    for i in range(0, len(data[0])):
+        total = 0
+        for j in range(0, len(adif.MODES)):
+            total += data[j][i]
+        if total > maxy:
+            maxy = total
+    delta = (dates[-1] - dates[0]).days
+
+    fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True)
+    ax = fig.add_subplot(111, facecolor=BG)
+    ax.set_title(title, color=FG, size='xx-large', weight='bold')
+
+    dates = matplotlib.dates.date2num(dates)
+    if start_date is None:
+        start_date = dates[0]
+    if end_date is None:
+        end_date = dates[-1]
+    ax.set_xlim(start_date, end_date)
+    ax.set_ylim(0, auto_scale(maxy))
+
+    width = delta / 365
+
+    offset = np.zeros((len(dates)), dtype=np.int32)
+    for i in range(0, len(adif.MODES)):
+        ta = np.array(data[i])
+        ax.bar(dates, ta, width, bottom=offset, color=colors[i], label=adif.MODES[i])
+        offset += ta
+
+    ax.grid(True)
+
+    ax.tick_params(axis='y', colors=FG, which='both', direction='out')
+    ax.tick_params(axis='x', colors=FG, which='both', direction='out', top=False)
+    ax.set_ylabel('QSOs', color=FG, size='x-large', weight='bold')
+    ax.set_xlabel('Date', color=FG, size='x-large', weight='bold')
+
+    ax.spines['left'].set_color(FG)
+    ax.spines['right'].set_color(FG)
+    ax.spines['top'].set_color(FG)
+    ax.spines['bottom'].set_color(FG)
+
+    ax.xaxis.set_major_locator(YearLocator())
+    ax.xaxis.set_minor_locator(MonthLocator())
+    ax.xaxis.set_major_formatter(DateFormatter('%Y'))
+    # ax.xaxis.set_minor_formatter(DateFormatter('%m'))
+    legend = ax.legend(loc='upper left', numpoints=1, facecolor=BG, edgecolor=FG)
+    for text in legend.get_texts():
+        text.set_color(FG)
+
+    if filename is not None:
+        canvas = agg.FigureCanvasAgg(fig)
+        canvas.draw()
+        fig.savefig(filename, facecolor=BG)
+    else:
+        plt.show()
+    plt.close(fig)
+    logging.debug('plot_qsos_mode_rate(...,%s, %s) done' % (title, filename))
     return
 
 
