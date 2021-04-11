@@ -16,6 +16,12 @@ and no type data is emitted when new adif is created.
 you probably should not use this.  "it works for me."
 """
 
+BANDS = ['2190M', '630M', '560M', '160M',
+         '80M', '60M', '40M', '30M', '20M', '17M', '15M', '12M', '10M',
+         '6M', '2M', '1.25M', '70CM']
+
+MODES = ['CW', 'DATA', 'IMAGE', 'PHONE']
+
 """
 list of DXCC countries.
 key is DXCC number
@@ -438,11 +444,12 @@ adif_mode_to_lotw_modegroup_map = {
     'PSK': 'DIGITAL',
     'RTTY': 'DIGITAL',
     'SSB': 'PHONE',
-    'SSTV': 'DIGITAL',  # REALLY? FIXME
+    'SSTV': 'IMAGE',
 }
 
 merge_key_parts = ['qso_date', 'app_lotw_modegroup', 'call', 'band']
 qso_key_parts = ['qso_date', 'time_on', 'call', 'band']
+
 
 def adif_mode_to_lotw_modegroup(adif_mode):
     lotw_modegroup = adif_mode_to_lotw_modegroup_map.get(adif_mode.upper())
@@ -525,7 +532,7 @@ def call_lotw(**params):
 
 
 def get_lotw_adif(username, password, filename=None, qso_qsorxsince=None):
-    if qso_qsorxsince == None:
+    if qso_qsorxsince is None:
         qso_qsorxsince = '1900-01-01'
     return call_lotw(login=username,
                      password=password,
@@ -540,10 +547,10 @@ def get_lotw_adif(username, password, filename=None, qso_qsorxsince=None):
 
 def get_qsl_cards(username, password, filename=None):
     qsl_cards_header, qsl_cards = call_lotw(url='https://lotw.arrl.org/lotwuser/logbook/qslcards.php',
-                     filename=filename,
-                     login=username,
-                     password=password,
-                     ac_acct='1')
+                                            filename=filename,
+                                            login=username,
+                                            password=password,
+                                            ac_acct='1')
     # add 'qsl_rcvd'='y' to be consistent with LoTW.
     for qsl_card in qsl_cards:
         qsl_card['qsl_rcvd'] = 'y'
@@ -869,26 +876,15 @@ def combine_qsos(qso_list, qsl_cards):
                 qsl_rcvd = (qso.get('qsl_rcvd') or 'n').lower()
                 if qsl_rcvd != 'y':
                     break
-                    #logging.warning('foo! {}'.format(card_merge_key))
                 if found:  # have already seen this qsl
                     logging.warning('already seen {} {} {} '.format(card_merge_key, str(qso), str(card)))
                 found = True
                 for k in card:
                     if k not in merge_key_parts:
                         qso[k] = card[k]
-
-                #if qso.get('dxcc') is None:
-                #    # print('QSO to QSL: %s %s %s %s' % (card['call'], card['band'], card['qso_date'], card['country']))
-                ##    qso['dxcc'] = card['dxcc']
-                 #   qso['country'] = card['country']
-                 #   copy_qso_data(card, qso, 'credit_granted')
-                 #   copy_qso_data(card, qso, 'app_lotw_deleted_entity')
-                 ##   copy_qso_data(card, qso, 'app_lotw_credit_granted')
-                  #  qso['qsl_rcvd'] = 'y'
-                  #  qso['app_n1kdo_qso_combined'] = 'qslcards detail added'
                 updated_qsls.append(qso)
         if not found:
-            # print('QSL added from card: %s %s %s %s' % (card['call'], card['band'], card['qso_date'], card['country']))
+            #  print('QSL added from card: %s %s %s %s' % (card['call'], card['band'], card['qso_date'], card['country']))
             card['app_n1kdo_qso_combined'] = 'qslcards QSL added'
             card['qsl_rcvd'] = 'y'
             added_qsls.append(card)
@@ -903,5 +899,3 @@ def copy_qso_data(qso_from, qso_to, key):
         qso_to[key] = data
     else:
         print('no key {} in {}'.format(key, qso_from))
-
-

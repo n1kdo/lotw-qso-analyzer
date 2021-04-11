@@ -1,12 +1,12 @@
 #!/usr/bin/python
 """
-adif-log-analyzer.py -- get statistics from LoTW QSO ADIF.
+adif_log_analyzer.py -- get statistics from LoTW QSO ADIF.
 data can come from ADIF file downloaded from Logbook of The World, or this
 script can collect the data from LoTW for you, optionally saving the ADIF.
 
 LICENSE:
 
-Copyright (c) 2018, Jeffrey B. Otterson, N1KDO
+Copyright (c) 2017 - 2021, Jeffrey B. Otterson, N1KDO
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -41,17 +41,13 @@ import adif
 import qso_charts
 
 __author__ = 'Jeffrey B. Otterson, N1KDO'
-__copyright__ = 'Copyright 2017, 2020 Jeffrey B. Otterson'
+__copyright__ = 'Copyright 2017 - 2021 Jeffrey B. Otterson'
 __license__ = 'Simplified BSD'
-__version__ = '0.05'
+__version__ = '0.07'
 
 logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S',
-                    level=logging.DEBUG)
+                    level=logging.INFO)
 logging.Formatter.converter = time.gmtime
-
-BANDS = ['2190M', '630M', '560M', '160M',
-         '80M', '60M', '40M', '30M', '20M', '17M', '15M', '12M', '10M',
-         '6M', '2M', '1.25M', '70CM']
 
 
 def date_range(start_date, end_date):
@@ -93,7 +89,7 @@ def crunch_data(qso_list):
     dxcc_confirmed = {}
     date_records = {}  # key is qso date.  value is dict, first record is summary data.
     total_counts = {'qdate': 'total', 'worked': 0, 'confirmed': 0, 'new_dxcc': 0, 'challenge': 0}
-    for band in BANDS:
+    for band in adif.BANDS:
         total_counts[band] = 0
         total_counts['challenge_' + band] = 0
 
@@ -138,12 +134,15 @@ def crunch_data(qso_list):
             dxcc_lookup_tuple = adif.dxcc_countries.get(qso_dxcc) or ('None', False)
             dxcc_name = dxcc_lookup_tuple[0]
             deleted = dxcc_lookup_tuple[1]
+            mode = qso.get('app_lotw_modegroup')
+            if mode is None:
+                mode = adif.adif_mode_to_lotw_modegroup(qso.get('mode'))
+
+            if mode not in adif.MODES:
+                logging.warning('unknown mode in qso:' + str(qso))
 
             if qso_dxcc is not None and qso_dxcc != '0' and deleted is False:
                 if confirmed == 1:
-                    mode = qso.get('app_lotw_modegroup')
-                    if mode is None:
-                        mode = adif.adif_mode_to_lotw_modegroup(qso.get('mode'))
                     if qso_dxcc not in dxcc_confirmed:
                         dxcc_country = adif.dxcc_countries.get(qso_dxcc) or ('error', True)
                         deleted = dxcc_country[1]
@@ -152,7 +151,6 @@ def crunch_data(qso_list):
                         else:
                             new_dxcc = 1
                         dxcc_confirmed[qso_dxcc] = {
-                            #'COUNTRY': qso.get('country') or adif.get_adif_country_name(qso_dxcc),
                             'COUNTRY': dxcc_name,
                             'DXCC': qso_dxcc,
                             'MIXED': 0,
@@ -190,10 +188,12 @@ def crunch_data(qso_list):
                 else:
                     counts = {'qdate': qdate, 'worked': 0, 'confirmed': 0,
                               'new_dxcc': 0, 'challenge': 0}
-                    for band in BANDS:
+                    for band in adif.BANDS:
                         counts[band] = 0
                         counts['challenge_' + band] = 0
-                        date_records[qdate] = counts
+                    for mode_name in adif.MODES:
+                        counts[mode_name] = 0
+                    date_records[qdate] = counts
 
                 if counts['qdate'] != qdate:
                     logging.error('ow ow ow!')  # this is bad bad
@@ -203,6 +203,7 @@ def crunch_data(qso_list):
                 counts['challenge'] += challenge
                 counts['challenge_' + qso_band] += challenge
                 counts[qso_band] += 1
+                counts[mode] += 1
                 total_counts['worked'] += 1
                 total_counts['confirmed'] += confirmed
                 total_counts['new_dxcc'] += new_dxcc
@@ -227,7 +228,7 @@ def crunch_data(qso_list):
     print('%5d confirmed' % n_confirmed)
     print('%5d verified' % n_verified)
     print('%5d challenge' % n_challenge)
-    for band in BANDS:
+    for band in adif.BANDS:
         c = int(total_counts['challenge_' + band])
         if c > 0:
             print('{:5d} {}'.format(c, band))
@@ -237,7 +238,6 @@ def crunch_data(qso_list):
     print('%5d unique log dates' % len(date_records))
     print('first QSO date: ' + first_date.strftime('%Y-%m-%d'))
     print('last QSO date: ' + last_date.strftime('%Y-%m-%d'))
-
 
     # now calculate running totals by date
     total_worked = 0
@@ -298,7 +298,6 @@ def crunch_data(qso_list):
         for i in range(0, number_of_top_calls):
             print('%2d %10s %3d' % (i + 1, calls_by_qso[i][0], calls_by_qso[i][1]))
 
-
     # dump the dxcc_counts data
     dxcc_records = dxcc_confirmed.values()
     dxcc_records = sorted(dxcc_records, key=lambda dxcc: int(dxcc['DXCC']))
@@ -324,110 +323,54 @@ def crunch_data(qso_list):
 def draw_charts(qso_list, callsign, start_date=None, end_date=None):
     logging.debug('draw_charts')
     callsign = callsign.upper()
+    logging.info('crunching QSO data')
     date_records = crunch_data(qso_list)
 
     # now draw the charts
+    logging.info('drawing QSOs chart')
     qso_charts.plot_qsos_by_date(date_records, callsign + ' QSOs',
                                  callsign + '_qsos_by_date.png',
                                  start_date=start_date,
                                  end_date=end_date)
+    logging.info('drawing DXCC and Challenge QSLs chart')
     qso_charts.plot_dxcc_qsos(date_records, callsign + ' DXCC and Challenge QSLs',
                               callsign + '_dxcc_qsos.png', start_date=start_date,
                               end_date=end_date)
+    logging.info('drawing QSO Rate chart')
     qso_charts.plot_qsos_rate(date_records, callsign + ' QSO Rate',
                               callsign + '_qso_rate.png', start_date=start_date,
                               end_date=end_date)
+    logging.info('drawing QSO by Band chart')
     qso_charts.plot_qsos_band_rate(date_records, callsign + ' QSO by Band',
                                    callsign + '_qsos_band_rate.png',
                                    start_date=start_date, end_date=end_date)
+    logging.info('drawing Challenge Band Slots chart')
     qso_charts.plot_challenge_bands_by_date(date_records, callsign + ' Challenge Band Slots',
                                             callsign + '_challenge_bands_by_date.png', start_date=start_date,
                                             end_date=end_date)
+    logging.info('drawing Grid Squares Worked map')
     qso_charts.plot_map(qso_list, callsign + ' Grid Squares Worked',
                         callsign + '_grids_map.png', start_date=start_date, end_date=end_date)
 
 
-def get_qsos_from_lotw():
-    qso_list = None
-    qsl_cards = None
-
-    # uncomment these next ~8 lines to test
-    if True:
-        callsign = 'n1kdo'
-        lotw_filename = callsign + '-lotw.adif'
-        cards_filename = callsign + '-cards.adif'
-        header, qso_list = adif.read_adif_file(lotw_filename)
-        cards_header, qsl_cards = adif.read_adif_file(cards_filename)
-        qso_list = adif.combine_qsos(qso_list, qsl_cards)
-        adif.write_adif_file(header, qso_list, callsign + '-combined.adif')
-        return qso_list
-
-    if False:
-        callsign = 'n1kdo'
-        header, qso_list = adif.read_adif_file(callsign + '-combined.adif')
-
-    while qso_list is None:
-        print('If you already have a downloaded ADIF data file from LoTW, that can be used,')
-        print('otherwise, this program will get the data from LoTW for you, and can optionally')
-        print('create an ADIF data file for subsequent analysis.')
-        print()
-        have_adif = get_yes_no('Do you have a LoTW ADIF file? [y/n] : ')
-        if have_adif:
-            adif_file_name = ''
-            try:
-                callsign = input1('Please enter your LoTW callsign   : ')
-                if callsign == '':
-                    continue
-                lotw_header, qso_list = adif.read_adif_file(callsign + '.adif')
-                dxcc_header, qsl_cards = adif.read_adif_file(callsign + '-dxcc.adif')
-            except Exception as e:
-                print('Problem reading ADIF file %s' % adif_file_name)
-                print(e)
-                return
-        else:
-            callsign = input1('Please enter your LoTW callsign : ')
-            password = input1('Please enter your LoTW password : ')
-            # try:
-            print('Please wait while your data is fetched from Logbook of The World.')
-            print('This could take several minutes.')
-            lotw_header, qso_list = adif.get_lotw_adif(callsign, password, callsign + '.adif')
-            # JEFF creation of filename from unchecked callsign is dangerous. fix this by sanitizing the callsign.
-            print('Fetching DXCC confirmations...')
-            dxcc_header, qsl_cards = adif.get_qsl_cards(callsign, password, callsign + '-cards.adif')
-            print('Please wait while your data is crunched.')
-            # except Exception as ex:
-            #    #  e = sys.exc_info()[0]
-            #    print('Problem downloading from LoTW...' + ex)
-            #    print()
-
-        qso_list = adif.combine_qsos(qso_list, qsl_cards)
-        adif.write_adif_file(lotw_header, qso_list, callsign + '-combined.adif')
-        return qso_list
-
-
-def get_qsos_from_adif(filename):
-    adif_header, qso_list = adif.read_adif_file(filename)
-    return qso_list
-
-
 def main():
     print('N1KDO\'s ADIF analyzer version %s' % __version__)
-    callsign = ''
-    filename = ''
-    if len(sys.argv) > 1:
+    if len(sys.argv) == 3:
         callsign = sys.argv[1]
+        filename = sys.argv[2]
+    else:
+        callsign = ''
+        filename = ''
 
     while len(callsign) < 3:
         callsign = input('enter callsign: ')
-
-    filename = '' #  '{}-lotw.adif'.format(callsign)
 
     while len(filename) < 4:
         filename = input('Enter adif file name: ')
         if not os.path.exists(filename):
             filename = ''
 
-    qso_list = get_qsos_from_adif(filename)
+    adif_header, qso_list = adif.read_adif_file(filename)
     logging.info('read {} qsls from {}'.format(len(qso_list), filename))
 
     if qso_list is not None:

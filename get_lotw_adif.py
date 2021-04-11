@@ -8,11 +8,12 @@ only to analyze it.
 """
 
 __author__ = 'Jeffrey B. Otterson, N1KDO'
-__copyright__ = 'Copyright 2020 Jeffrey B. Otterson'
+__copyright__ = 'Copyright 2020, 2021 Jeffrey B. Otterson'
 __license__ = 'Simplified BSD'
-__version__ = '0.01'
+__version__ = '0.02'
 
 import adif
+import adif_log_analyzer
 import getpass
 import logging
 import os.path
@@ -41,13 +42,14 @@ def show_file_info(filename):
 
 
 def menu():
-    valid_choices = '012345'
+    valid_choices = '0123456'
     while True:
         print('1. Download complete LoTW ADIF')
         print('2. Download updates to existing LoTW ADIF')
         print('3. Download DXCC QSL cards ADIF')
         print('4. Save current LoTW ADIF')
         print('5. Merge LoTW and DXCC QSLs into combined ADIF')
+        print('6. Draw the charts from this data')
         print('0. Exit this program')
         print()
         choice = input('Your Choice? ')
@@ -57,49 +59,56 @@ def menu():
 
 
 def get_password(password):
-    if password is not None and len(password) >=6:
+    if password is not None and len(password) >= 6:
         return password
     while True:
-        password = getpass.getpass()
+        # password = getpass.getpass(prompt='Enter your LoTW Password: ')
+        password = input('Enter your LoTW Password: ')
         if password is not None and len(password) > 0:
             return password
 
 
 def main():
-    #callsign = 'n1kdo'
+    # callsign = 'n1kdo'
     callsign = ''
     password = None
     working_dir = ''
     while len(callsign) < 3:
-        #print('Please enter your callsign: ', end=None)
+        # print('Please enter your callsign: ', end=None)
         callsign = input('Please enter your callsign: ')
-        #print()
+        # print()
 
     lotw_adif_file_name = '{}{}-lotw.adif'.format(working_dir, callsign)
     lotw_adif_new_qsos_file_name = '{}{}-lotw-new-qsos.adif'.format(working_dir, callsign)
     lotw_adif_new_qsls_file_name = '{}{}-lotw-new-qsls.adif'.format(working_dir, callsign)
     dxcc_qsls_file_name = '{}{}-cards.adif'.format(working_dir, callsign)
 
-    lotw_header = None
-    lotw_qsos = None
-
     if os.path.exists(lotw_adif_file_name):
         lotw_header, lotw_qsos = adif.read_adif_file(lotw_adif_file_name)
         if lotw_header.get('app_lotw_lastqsl') is None:
             lotw_header['app_lotw_lastqsl'] = lotw_header.get('app_lotw_lastqsorx')
+    else:
+        lotw_header = None
+        lotw_qsos = None
+
     if os.path.exists(dxcc_qsls_file_name):
         dxcc_qsls_header, dxcc_qsl_cards = adif.read_adif_file(dxcc_qsls_file_name)
+    else:
+        dxcc_qsls_header = None
+        dxcc_qsl_cards = None
+
+    last_qso_date = None
+    last_qsl_date = None
 
     while True:
         print('---------------------------------------')
         show_file_info(lotw_adif_file_name)
-        last_qso_date = None
         if lotw_header is not None:
             print('{} QSOs'.format(len(lotw_qsos)))
             last_qso_date = lotw_header.get('app_lotw_lastqsorx')
             if last_qso_date is not None:
                 print('Last QSO Received {}'.format(last_qso_date))
-            last_qsl_date = lotw_header.get(('app_lotw_lastqsl'))
+            last_qsl_date = lotw_header.get('app_lotw_lastqsl')
             if last_qsl_date is not None:
                 print('Last QSL Received {}'.format(last_qsl_date))
         print('---------------------------------------')
@@ -108,7 +117,7 @@ def main():
             dxcc_record_updated = dxcc_qsls_header.get('app_lotw_dxccrecord_updated')
             if dxcc_record_updated is not None:
                 print('DXCC Record Updated {}'.format(dxcc_record_updated))
-            #print(dxcc_qsls_header)
+            #  print(dxcc_qsls_header)
             print('{} DXCC QSL Cards'.format(len(dxcc_qsl_cards)))
         print('---------------------------------------')
         choice = menu()
@@ -124,9 +133,9 @@ def main():
                 password = get_password(password)
                 logging.info('fetching new QSOs')
                 new_lotw_qsos_header, new_lotw_qsos = adif.get_lotw_adif(callsign,
-                                                                        password,
-                                                                        filename=lotw_adif_new_qsos_file_name,
-                                                                        qso_qsorxsince=last_qso_date)
+                                                                         password,
+                                                                         filename=lotw_adif_new_qsos_file_name,
+                                                                         qso_qsorxsince=last_qso_date)
                 new_last_qso_date = lotw_header.get('app_lotw_lastqsorx')
                 logging.info('New last QSO Received {}, {} QSO records'.format(new_last_qso_date, len(new_lotw_qsos)))
                 logging.info('fetching new QSOs')
@@ -156,7 +165,9 @@ def main():
             if lotw_header is None or dxcc_qsls_header is None:
                 print('need both lotw qsos and dxcc cards in order to merge.  sorry.')
             else:
-                combined_qsos = adif.combine_qsos(lotw_qsos, dxcc_qsl_cards)
+                lotw_qsos = adif.combine_qsos(lotw_qsos, dxcc_qsl_cards)
+        elif choice == '6':
+            adif_log_analyzer.draw_charts(lotw_qsos, callsign)
 
 
 if __name__ == '__main__':
