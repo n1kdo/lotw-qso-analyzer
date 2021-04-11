@@ -30,4 +30,10 @@ I'm putting it on GitHub because others might find it useful.
 
 It is still very much a work-in-progress.  
 
+### To Run in Docker
+
+`docker build -t lotw .`
+`docker run -v output:/app/output/ -it lotw`
+
 n1kdo 20201210
+
