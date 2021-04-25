@@ -139,7 +139,7 @@ def crunch_data(qso_list):
                 mode = adif.adif_mode_to_lotw_modegroup(qso.get('mode'))
 
             if mode not in adif.MODES:
-                logging.warning('unknown mode in qso:' + str(qso))
+                logging.warning('unknown mode {} in qso:'.format(mode) + str(qso))
 
             if qso_dxcc is not None and qso_dxcc != '0' and deleted is False:
                 if confirmed == 1:
