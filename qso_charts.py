@@ -219,7 +219,7 @@ def plot_dxcc_qsos(date_records, title, filename=None, start_date=None, end_date
     challenge_ticks = [500, 1000, 1500, 2000, 2500, 3000, 3500]
     axb.set_yticks(challenge_ticks)
     current_challenge_label_distance = total_challenge_data[-1] % 500
-    print(current_challenge_label_distance)
+    #print(current_challenge_label_distance)
     if current_challenge_label_distance > 20 and current_challenge_label_distance < 480:
         axb.set_yticks([total_challenge_data[-1]], minor=True)
         axb.yaxis.set_minor_formatter(FormatStrFormatter('%d'))
@@ -228,7 +228,7 @@ def plot_dxcc_qsos(date_records, title, filename=None, start_date=None, end_date
 
     ax.xaxis.set_major_locator(YearLocator())
     ax.xaxis.set_minor_locator(MonthLocator())
-    ax.xaxis.set_major_formatter(DateFormatter('%Y'))
+    ax.xaxis.set_major_formatter(DateFormatter('%y'))
     lns = lns1 + lns2
     labs = [l.get_label() for l in lns]
 
@@ -331,7 +331,7 @@ def plot_qsos_rate(date_records, title, filename=None, start_date=None, end_date
 
     ax.xaxis.set_major_locator(YearLocator())
     ax.xaxis.set_minor_locator(MonthLocator())
-    ax.xaxis.set_major_formatter(DateFormatter('%Y'))
+    ax.xaxis.set_major_formatter(DateFormatter('%y'))
     # ax.xaxis.set_minor_formatter(DateFormatter('%M'))
 
     legend = ax.legend(loc='upper left', numpoints=1, facecolor=BG, edgecolor=FG)
@@ -415,7 +415,7 @@ def plot_qsos_band_rate(date_records, title, filename=None, start_date=None, end
 
     ax.xaxis.set_major_locator(YearLocator())
     ax.xaxis.set_minor_locator(MonthLocator())
-    ax.xaxis.set_major_formatter(DateFormatter('%Y'))
+    ax.xaxis.set_major_formatter(DateFormatter('%y'))
     # ax.xaxis.set_minor_formatter(DateFormatter('%m'))
     legend = ax.legend(loc='upper left', numpoints=1, facecolor=BG, edgecolor=FG)
     for text in legend.get_texts():
@@ -499,7 +499,7 @@ def plot_qsos_mode_rate(date_records, title, filename=None, start_date=None, end
 
     ax.xaxis.set_major_locator(YearLocator())
     ax.xaxis.set_minor_locator(MonthLocator())
-    ax.xaxis.set_major_formatter(DateFormatter('%Y'))
+    ax.xaxis.set_major_formatter(DateFormatter('%y'))
     # ax.xaxis.set_minor_formatter(DateFormatter('%m'))
     legend = ax.legend(loc='upper left', numpoints=1, facecolor=BG, edgecolor=FG)
     for text in legend.get_texts():
@@ -571,7 +571,7 @@ def plot_challenge_bands_by_date(date_records, title, filename=None, start_date=
 
     ax.xaxis.set_major_locator(YearLocator())
     ax.xaxis.set_minor_locator(MonthLocator())
-    ax.xaxis.set_major_formatter(DateFormatter('%Y'))
+    ax.xaxis.set_major_formatter(DateFormatter('%y'))
     legend = ax.legend(loc='upper left', numpoints=1, facecolor=BG, edgecolor=FG)
     for text in legend.get_texts():
         text.set_color(FG)

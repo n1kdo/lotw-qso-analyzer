@@ -104,7 +104,20 @@ def crunch_data(qso_list):
 
     for qso in qso_list:
         qso_date = qso.get('qso_date')
+        qso_band = (qso.get('band') or '').upper()
+        if qso_band == '':
+            logging.warning('empty band data in qso:' + str(qso))
+            continue
+
         if qso_date is not None:
+            if False:  # check sanity of qsl date
+                processed_date = qso.get('app_lotw_dxcc_processed_dtg')
+                if processed_date is not None:
+                    processed_date = processed_date[0:4] + processed_date[5:7] + processed_date[8:10]
+                    d = int(processed_date) - int(qso_date)
+                    if d / 10000 > 10:
+                        print('{}:{}:{}'.format(qso_date, processed_date, d))
+
             confirmed = 0
             verified = 0
             new_dxcc = 0
@@ -121,16 +134,21 @@ def crunch_data(qso_list):
                 verified = 1
             qsl_rcvd = (qso.get('qsl_rcvd') or 'N').lower()
             if qsl_rcvd == 'y':
-                if qso.get('app_lotw_2xqsl') is not None or qso.get('app_lotw_credit_granted') is not None:
+                if True:
                     confirmed = 1
-                elif confirmed == 0:
-                    check_cards.append(qso)
+                else:
+                    if qso.get('app_lotw_2xqsl') is not None or qso.get('app_lotw_credit_granted') is not None:
+                        confirmed = 1
+                    elif qso.get('qslrdate') is not None:
+                        confirmed = 1
+                    elif confirmed == 0:
+                        check_cards.append(qso)
+                        print(qso)
 
             elif qsl_rcvd == 'v':
                 confirmed = 1
                 verified = 1
 
-            qso_band = (qso.get('band') or '').upper()
             dxcc_lookup_tuple = adif.dxcc_countries.get(qso_dxcc) or ('None', False)
             dxcc_name = dxcc_lookup_tuple[0]
             deleted = dxcc_lookup_tuple[1]
@@ -201,15 +219,16 @@ def crunch_data(qso_list):
                 counts['confirmed'] += confirmed
                 counts['new_dxcc'] += new_dxcc
                 counts['challenge'] += challenge
-                counts['challenge_' + qso_band] += challenge
-                counts[qso_band] += 1
                 counts[mode] += 1
                 total_counts['worked'] += 1
                 total_counts['confirmed'] += confirmed
                 total_counts['new_dxcc'] += new_dxcc
                 total_counts['challenge'] += challenge
-                total_counts['challenge_' + qso_band] += challenge
-                total_counts[qso_band] += 1
+                if qso_band != '':
+                    counts['challenge_' + qso_band] += challenge
+                    counts[qso_band] += 1
+                    total_counts['challenge_' + qso_band] += challenge
+                    total_counts[qso_band] += 1
 
                 if last_date is None or qdate > last_date:
                     last_date = qdate
