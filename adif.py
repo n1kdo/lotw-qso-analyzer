@@ -509,7 +509,7 @@ def call_lotw(**params):
         line = line.strip()
         if first_line:
             if 'ARRL Logbook of the World' not in line:
-                print(line)
+                print(response)
                 raise Exception('ADIF download failed: ' + line)
             first_line = False
         if adif_file is not None:
