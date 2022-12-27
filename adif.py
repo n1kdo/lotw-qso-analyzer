@@ -526,7 +526,7 @@ def call_lotw(**params):
                     qso = {}
         else:
             qso[item_name] = item_value
-        print('QSOs loaded: {}'.format(len(qsos)), end='\r')
+        print('records loaded: {}'.format(len(qsos)), end='\r')
     print()
     if adif_file is not None:
         adif_file.close()
@@ -534,9 +534,7 @@ def call_lotw(**params):
     return header, sorted(qsos, key=lambda qso: qso_key(qso))
 
 
-def get_lotw_adif(username, password, filename=None, qso_qsorxsince=None):
-    if qso_qsorxsince is None:
-        qso_qsorxsince = '1900-01-01'
+def get_lotw_adif(username, password, filename=None, qso_qsorxsince='1900-01-01'):
     return call_lotw(login=username,
                      password=password,
                      filename=filename,

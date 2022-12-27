@@ -14,7 +14,6 @@ __version__ = '0.02'
 
 import adif
 import adif_log_analyzer
-import getpass
 import logging
 import os.path
 import time
@@ -69,14 +68,11 @@ def get_password(password):
 
 
 def main():
-    # callsign = 'n1kdo'
     callsign = ''
     password = None
     working_dir = ''
     while len(callsign) < 3:
-        # print('Please enter your callsign: ', end=None)
         callsign = input('Please enter your callsign: ')
-        # print()
 
     lotw_adif_file_name = '{}{}-lotw.adif'.format(working_dir, callsign)
     lotw_adif_new_qsos_file_name = '{}{}-lotw-new-qsos.adif'.format(working_dir, callsign)
@@ -138,8 +134,9 @@ def main():
                                                                          qso_qsorxsince=last_qso_date)
                 new_last_qso_date = lotw_header.get('app_lotw_lastqsorx')
                 logging.info('New last QSO Received {}, {} QSO records'.format(new_last_qso_date, len(new_lotw_qsos)))
-                logging.info('fetching new QSOs')
                 lotw_header, lotw_qsos = adif.merge(lotw_header, lotw_qsos, new_lotw_qsos_header, new_lotw_qsos)
+
+                logging.info('fetching new QSLs')
                 if new_lotw_qsos_header.get('app_lotw_lastqsorx') is not None:
                     lotw_header['app_lotw_lastqsorx'] = new_lotw_qsos_header.get('app_lotw_lastqsorx')
 
