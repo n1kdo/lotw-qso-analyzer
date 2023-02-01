@@ -128,30 +128,34 @@ def main():
             else:
                 password = get_password(password)
                 logging.info('fetching new QSOs')
-                new_lotw_qsos_header, new_lotw_qsos = adif.get_lotw_adif(callsign,
-                                                                         password,
-                                                                         filename=lotw_adif_new_qsos_file_name,
-                                                                         qso_qsorxsince=last_qso_date)
-                new_last_qso_date = lotw_header.get('app_lotw_lastqsorx')
-                logging.info('New last QSO Received {}, {} QSO records'.format(new_last_qso_date, len(new_lotw_qsos)))
-                lotw_header, lotw_qsos = adif.merge(lotw_header, lotw_qsos, new_lotw_qsos_header, new_lotw_qsos)
+                new_lotw_qsos_header = None
+                try:
+                    new_lotw_qsos_header, new_lotw_qsos = adif.get_lotw_adif(callsign,
+                                                                             password,
+                                                                             filename=lotw_adif_new_qsos_file_name,
+                                                                             qso_qsorxsince=last_qso_date)
+                    new_last_qso_date = lotw_header.get('app_lotw_lastqsorx')
+                    logging.info(
+                        'New last QSO Received {}, {} QSO records'.format(new_last_qso_date, len(new_lotw_qsos)))
+                    lotw_header, lotw_qsos = adif.merge(lotw_header, lotw_qsos, new_lotw_qsos_header, new_lotw_qsos)
+                    logging.info('fetching new QSLs')
+                    if new_lotw_qsos_header.get('app_lotw_lastqsorx') is not None:
+                        lotw_header['app_lotw_lastqsorx'] = new_lotw_qsos_header.get('app_lotw_lastqsorx')
 
-                logging.info('fetching new QSLs')
-                if new_lotw_qsos_header.get('app_lotw_lastqsorx') is not None:
-                    lotw_header['app_lotw_lastqsorx'] = new_lotw_qsos_header.get('app_lotw_lastqsorx')
-
-                new_lotw_qsls_header, new_lotw_qsls = adif.call_lotw(login=callsign,
-                                                                     password=password,
-                                                                     filename=lotw_adif_new_qsls_file_name,
-                                                                     qso_owncall=callsign,
-                                                                     qso_qsl='yes',
-                                                                     qso_qsldetail='yes',
-                                                                     qso_qslsince=last_qsl_date,
-                                                                     qso_query='1'
-                                                                     )
-                lotw_header, lotw_qsos = adif.merge(lotw_header, lotw_qsos, new_lotw_qsls_header, new_lotw_qsls)
-                if new_lotw_qsls_header.get('app_lotw_lastqsl') is not None:
-                    lotw_header['app_lotw_lastqsl'] = new_lotw_qsls_header.get('app_lotw_lastqsl')
+                    new_lotw_qsls_header, new_lotw_qsls = adif.call_lotw(login=callsign,
+                                                                         password=password,
+                                                                         filename=lotw_adif_new_qsls_file_name,
+                                                                         qso_owncall=callsign,
+                                                                         qso_qsl='yes',
+                                                                         qso_qsldetail='yes',
+                                                                         qso_qslsince=last_qsl_date,
+                                                                         qso_query='1'
+                                                                         )
+                    lotw_header, lotw_qsos = adif.merge(lotw_header, lotw_qsos, new_lotw_qsls_header, new_lotw_qsls)
+                    if new_lotw_qsls_header.get('app_lotw_lastqsl') is not None:
+                        lotw_header['app_lotw_lastqsl'] = new_lotw_qsls_header.get('app_lotw_lastqsl')
+                except Exception as ex:
+                    print(ex)
 
         elif choice == '3':
             password = get_password(password)

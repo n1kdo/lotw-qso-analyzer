@@ -123,14 +123,16 @@ def plot_qsos_by_date(date_records, title, filename=None, start_date=None, end_d
 
     dates = matplotlib.dates.date2num(dates)
     colors = ['#ffff00', '#ff9933', '#cc6600', '#660000']
-    labels = ['dxcc', 'challenge', 'confirmed', 'worked']
+    labels = [f'{new_dxcc} dxcc', f'{challenge} challenge', f'{confirmed} confirmed', f'{worked} logged']
     if start_date is None:
         start_date = dates[0]
     if end_date is None:
         end_date = dates[-1]
     ax.set_xlim(start_date, end_date)
 
-    ax.set_ylim(bottom=0, top=auto_scale(biggest))
+    upper = (biggest // 5000 + 1) * 5000
+
+    ax.set_ylim(bottom=0, top=upper)  # auto_scale(biggest))
 
     ax.stackplot(dates, data[0], data[1], data[2], data[3], labels=labels, colors=colors, linewidth=0.2)
     ax.grid(True)
@@ -302,19 +304,20 @@ def plot_qsos_rate(date_records, title, filename=None, start_date=None, end_date
 
     offsets = np.zeros((len(dates)), np.int32)
     colors = ['#ff0000', '#ff6600', '#00ff00', '#0000ff']
-    labels = ['DXCC Entity', 'Challenge', 'Confirmed', 'Worked']
+    colors = ['#ff3333', '#cccc00', '#009900', '#000099']
+    labels = ['Logged', 'Confirmed', 'Challenge', 'DXCC Entity']
     width = delta / 365  # guess
-    d = np.array(data[3])
-    ax.bar(dates, d, width, bottom=offsets, color=colors[3], label=labels[3])
-    offsets += d
-    d = np.array(data[2])
-    ax.bar(dates, d, width, bottom=offsets, color=colors[2], label=labels[2])
+    d = np.array(data[0])
+    ax.bar(dates, d, width, bottom=offsets, color=colors[0], label=labels[3])
     offsets += d
     d = np.array(data[1])
-    ax.bar(dates, d, width, bottom=offsets, color=colors[1], label=labels[1])
+    ax.bar(dates, d, width, bottom=offsets, color=colors[1], label=labels[2])
     offsets += d
-    d = np.array(data[0])
-    ax.bar(dates, d, width, bottom=offsets, color=colors[0], label=labels[0])
+    d = np.array(data[2])
+    ax.bar(dates, d, width, bottom=offsets, color=colors[2], label=labels[1])
+    offsets += d
+    d = np.array(data[3])
+    ax.bar(dates, d, width, bottom=offsets, color=colors[3], label=labels[0])
     ax.grid(True)
 
     ax.tick_params(axis='y', colors=FG, which='both', direction='out')
