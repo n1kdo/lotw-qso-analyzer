@@ -2,7 +2,7 @@ import datetime
 import logging
 import numpy as np
 import matplotlib
-from matplotlib.dates import DateFormatter, YearLocator, MonthLocator
+from matplotlib.dates import DateFormatter, YearLocator, MonthLocator, DayLocator, HourLocator
 from matplotlib.ticker import FormatStrFormatter
 
 import matplotlib.pyplot as plt
@@ -20,6 +20,49 @@ FG = 'k'
 BG = 'w'
 
 
+class BinnedQSOData:
+
+    def __init__(self, first_datetime, last_datetime):
+        # always start on a day boundary
+        self.offset = int(first_datetime.replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
+        days = (last_datetime - first_datetime)
+        self.num_days = days.days + 1
+
+        if self.num_days <= 7:
+            self.bin_size = 3600  # 1 hour
+            self.num_bins = self.num_days * 24 + 1
+            self.bin_size = 60 * 30  # 1/2 hour
+            self.num_bins = self.num_days * 24 * 2 + 1
+        elif self.num_days <= 28:
+            self.bin_size = 3600 * 12  # 12 hours
+            self.num_bins = self.num_days * 2 + 1
+        elif self.num_days <= 365:
+            self.bin_size = 86400  # 1 day
+            self.num_bins = self.num_days + 1
+        elif self.num_days <= 3650:
+            self.bin_size = 86400 * 7  # 7 days
+            self.num_bins = self.num_days // 7 + 1
+        else:
+            self.bin_size = 86400 * 28  # 4 weeks
+            self.num_bins = self.num_days // 28 + 1
+
+        self.data = [{}] * self.num_bins
+        for i in range(0, self.num_bins):
+            ts = self.offset + i * self.bin_size
+            dt = datetime.datetime.utcfromtimestamp(ts)
+            self.data[i] = {'datetime': dt}
+        logging.info(f'num_days = {self.num_days}')
+        logging.info(f'num_bins = {self.num_bins}')
+        logging.info(f'offset = {self.offset}')
+        logging.info(f'bin_size = {self.bin_size}')
+
+    def get_bin(self, data_datetime):
+        ts = int(data_datetime.timestamp())
+        ts = ts - self.offset
+        bin_num = ts // self.bin_size
+        return bin_num
+
+
 def auto_scale(val):
     factor = 1
     t = val
@@ -35,64 +78,7 @@ def no_zero(n):
     return n
 
 
-# JEFF this should use a python generator
-def next_bin_date(d, size):
-    if size == 7:
-        return d + datetime.timedelta(days=7)
-    else:
-        month = d.month + 1
-        if month > 12:
-            month = 1
-            year = d.year + 1
-        else:
-            year = d.year
-        return datetime.date(year, month, 1)
-
-
-def make_bins(dates, data):
-    logging.debug('make_bins called with %d items' % len(dates))
-    days = (dates[-1] - dates[0]).days
-    if days <= 731:  # 2 years or less -- don't bin! leave as daily data
-        return dates, data
-    if days <= 3650:  # 10 years or less -- bin into weeks
-        bin_start_date = dates[0]
-        bin_size = 7
-        bin_end_date = next_bin_date(bin_start_date, bin_size)
-    else:  # bin into months
-        bin_start_date = datetime.date(dates[0].year, dates[0].month, 1)
-        bin_size = 31
-        bin_end_date = next_bin_date(bin_start_date, bin_size)
-
-    binned_dates = []
-    binned_data = []
-
-    for i in range(len(data)):
-        binned_data.append([])
-    bin_total = [0]*len(data)
-
-    for i in range(0, len(dates)):
-        d = dates[i]
-        while d > bin_end_date:
-            binned_dates.append(bin_start_date)
-            for j in range(len(data)):
-                binned_data[j].append(bin_total[j])
-                bin_total[j] = 0
-            bin_start_date = bin_end_date
-            bin_end_date = next_bin_date(bin_start_date, bin_size)
-
-        for j in range(len(data)):
-            bin_total[j] += data[j][i]
-
-    binned_dates.append(bin_start_date)
-    for j in range(len(data)):
-        binned_data[j].append(bin_total[j])
-        bin_total[j] = 0
-
-    logging.debug('make_bins returning %d items' % len(binned_dates))
-    return binned_dates, binned_data
-
-
-def plot_qsos_by_date(date_records, title, filename=None, start_date=None, end_date=None):
+def plot_qsos_by_date(bin_data, title, filename=None, start_date=None, end_date=None):
     """
     make the chart
     """
@@ -100,15 +86,15 @@ def plot_qsos_by_date(date_records, title, filename=None, start_date=None, end_d
     dates = []
     data = [[], [], [], []]
     biggest = 0
-    for counts in date_records:
-        qdate = counts['qdate']
-        worked = counts['total_worked']
-        confirmed = counts['total_confirmed']
-        challenge = counts['total_challenge']
-        new_dxcc = counts['total_new_dxcc']
+    for bin_dict in bin_data.data:
+        qdate = bin_dict['datetime']
+        worked = bin_dict['total_worked']
+        confirmed = bin_dict['total_confirmed']
+        challenge = bin_dict['total_challenge']
+        dxcc = bin_dict['total_dxcc']
         dates.append(qdate)
-        data[0].append(new_dxcc)
-        data[1].append(challenge - new_dxcc)
+        data[0].append(dxcc)
+        data[1].append(challenge - dxcc)
         data[2].append(confirmed - challenge)
         data[3].append(worked - confirmed)
         if worked > biggest:
@@ -123,14 +109,15 @@ def plot_qsos_by_date(date_records, title, filename=None, start_date=None, end_d
 
     dates = matplotlib.dates.date2num(dates)
     colors = ['#ffff00', '#ff9933', '#cc6600', '#660000']
-    labels = [f'{new_dxcc} dxcc', f'{challenge} challenge', f'{confirmed} confirmed', f'{worked} logged']
+    labels = [f'{dxcc} dxcc', f'{challenge} challenge', f'{confirmed} confirmed', f'{worked} logged']
     if start_date is None:
         start_date = dates[0]
     if end_date is None:
         end_date = dates[-1]
     ax.set_xlim(start_date, end_date)
 
-    upper = (biggest // 5000 + 1) * 5000
+    scale_factor = 1000
+    upper = (biggest // scale_factor + 1) * scale_factor
 
     ax.set_ylim(bottom=0, top=upper)  # auto_scale(biggest))
 
@@ -143,12 +130,18 @@ def plot_qsos_by_date(date_records, title, filename=None, start_date=None, end_d
     ax.spines['top'].set_color(FG)
     ax.tick_params(axis='y', colors=FG, which='both', direction='out', left=True, right=True)
     ax.tick_params(axis='x', colors=FG, which='both', direction='out', top=False)
-    ax.set_ylabel('QSOS', color=FG, size='x-large', weight='bold')
-    ax.set_xlabel('Year', color=FG, size='x-large', weight='bold')
+    ax.set_ylabel('QSOs', color=FG, size='x-large', weight='bold')
 
-    ax.xaxis.set_major_locator(YearLocator())
-    ax.xaxis.set_minor_locator(MonthLocator())
-    ax.xaxis.set_major_formatter(DateFormatter('%y'))
+    if bin_data.num_days <= 28:
+        ax.xaxis.set_major_locator(DayLocator())
+        ax.xaxis.set_minor_locator(HourLocator())
+        ax.xaxis.set_major_formatter(DateFormatter('%m-%d'))
+        ax.set_xlabel('Date', color=FG, size='x-large', weight='bold')
+    else:
+        ax.xaxis.set_major_locator(YearLocator())
+        ax.xaxis.set_minor_locator(MonthLocator())
+        ax.xaxis.set_major_formatter(DateFormatter('%y'))
+        ax.set_xlabel('Year', color=FG, size='x-large', weight='bold')
 
     legend = ax.legend(loc='upper left', facecolor=BG, edgecolor=FG)
     for text in legend.get_texts():
@@ -165,7 +158,7 @@ def plot_qsos_by_date(date_records, title, filename=None, start_date=None, end_d
     return
 
 
-def plot_dxcc_qsos(date_records, title, filename=None, start_date=None, end_date=None):
+def plot_dxcc_qsos(bin_data, title, filename=None, start_date=None, end_date=None):
     """
     make the chart
     """
@@ -174,14 +167,14 @@ def plot_dxcc_qsos(date_records, title, filename=None, start_date=None, end_date
     total_dxcc_data = []
     total_challenge_data = []
 
-    for counts in date_records:
-        qso_date = counts['qdate']
+    for bin_dict in bin_data.data:
+        qso_date = bin_dict['datetime']
         dates.append(qso_date)
-        total_dxcc_data.append(counts['total_new_dxcc'])
-        total_challenge_data.append(counts['total_challenge'])
+        total_dxcc_data.append(bin_dict['total_dxcc'])
+        total_challenge_data.append(bin_dict['total_challenge'])
 
-    number_dxcc = date_records[-1]['total_new_dxcc']
-    number_challenge = date_records[-1]['total_challenge']
+    number_dxcc = bin_data.data[-1]['total_dxcc']
+    number_challenge = bin_data.data[-1]['total_challenge']
 
     # {'pad': 0.10}
     fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True)
@@ -226,11 +219,18 @@ def plot_dxcc_qsos(date_records, title, filename=None, start_date=None, end_date
         axb.set_yticks([total_challenge_data[-1]], minor=True)
         axb.yaxis.set_minor_formatter(FormatStrFormatter('%d'))
     axb.tick_params(axis='y', colors=FG, which='both', direction='out', left=False, labelcolor='g')
-    ax.set_xlabel('Date', color=FG, size='x-large', weight='bold')
 
-    ax.xaxis.set_major_locator(YearLocator())
-    ax.xaxis.set_minor_locator(MonthLocator())
-    ax.xaxis.set_major_formatter(DateFormatter('%y'))
+    if bin_data.num_days <= 28:
+        ax.xaxis.set_major_locator(DayLocator())
+        ax.xaxis.set_minor_locator(HourLocator())
+        ax.xaxis.set_major_formatter(DateFormatter('%m-%d'))
+        ax.set_xlabel('Date', color=FG, size='x-large', weight='bold')
+    else:
+        ax.xaxis.set_major_locator(YearLocator())
+        ax.xaxis.set_minor_locator(MonthLocator())
+        ax.xaxis.set_major_formatter(DateFormatter('%y'))
+        ax.set_xlabel('Year', color=FG, size='x-large', weight='bold')
+
     lns = lns1 + lns2
     labs = [l.get_label() for l in lns]
 
@@ -259,7 +259,7 @@ def plot_dxcc_qsos(date_records, title, filename=None, start_date=None, end_date
     return
 
 
-def plot_qsos_rate(date_records, title, filename=None, start_date=None, end_date=None):
+def plot_qsos_rate(bin_data, title, filename=None, start_date=None, end_date=None):
     """
     make the chart
     """
@@ -268,14 +268,14 @@ def plot_qsos_rate(date_records, title, filename=None, start_date=None, end_date
     dates = []
     data = [[], [], [], []]
     maxy = 0
-    for counts in date_records:
-        qdate = counts['qdate']
+    for bin_dict in bin_data.data:
+        qdate = bin_dict['datetime']
         if (start_date is None or qdate >= start_date) and (end_date is None or qdate <= end_date):
             # compute stacked bar sizes
-            new_dxcc = counts['new_dxcc']
-            challenge = counts['challenge'] - counts['new_dxcc']
-            confirmed = counts['confirmed'] - counts['challenge']
-            worked = counts['worked'] - counts['confirmed']
+            new_dxcc = bin_dict['new_dxcc']
+            challenge = bin_dict['challenge'] - bin_dict['new_dxcc']
+            confirmed = bin_dict['confirmed'] - bin_dict['challenge']
+            worked = bin_dict['worked'] - bin_dict['confirmed']
             dates.append(qdate)
             data[0].append(new_dxcc)
             data[1].append(challenge)
@@ -286,13 +286,10 @@ def plot_qsos_rate(date_records, title, filename=None, start_date=None, end_date
     ax = fig.add_subplot(111, facecolor=BG)
     ax.set_title(title, color=FG, size='xx-large', weight='bold')
 
-    dates, data = make_bins(dates, data)
-
     for i in range(0, len(data[0])):
         total = data[0][i] + data[1][i] + data[2][i] + data[3][i]
         if total > maxy:
             maxy = total
-    delta = (dates[-1] - dates[0]).days
 
     dates = matplotlib.dates.date2num(dates)
     if start_date is None:
@@ -303,10 +300,11 @@ def plot_qsos_rate(date_records, title, filename=None, start_date=None, end_date
     ax.set_ylim(0, auto_scale(maxy))
 
     offsets = np.zeros((len(dates)), np.int32)
-    colors = ['#ff0000', '#ff6600', '#00ff00', '#0000ff']
     colors = ['#ff3333', '#cccc00', '#009900', '#000099']
     labels = ['Logged', 'Confirmed', 'Challenge', 'DXCC Entity']
-    width = delta / 365  # guess
+    width = bin_data.num_days / 365
+    logging.debug(f'width {width}')
+    logging.debug(f'num_bins {bin_data.num_bins}')
     d = np.array(data[0])
     ax.bar(dates, d, width, bottom=offsets, color=colors[0], label=labels[3])
     offsets += d
@@ -323,8 +321,6 @@ def plot_qsos_rate(date_records, title, filename=None, start_date=None, end_date
     ax.tick_params(axis='y', colors=FG, which='both', direction='out')
     ax.tick_params(axis='x', colors=FG, which='both', direction='out', top=False)
     ax.set_ylabel('QSOs', color=FG, size='x-large', weight='bold')
-    ax.set_xlabel('Date', color=FG, size='x-large', weight='bold')
-
     ax.set_ylim(0, auto_scale(maxy))
 
     ax.spines['left'].set_color(FG)
@@ -332,10 +328,16 @@ def plot_qsos_rate(date_records, title, filename=None, start_date=None, end_date
     ax.spines['top'].set_color(FG)
     ax.spines['bottom'].set_color(FG)
 
-    ax.xaxis.set_major_locator(YearLocator())
-    ax.xaxis.set_minor_locator(MonthLocator())
-    ax.xaxis.set_major_formatter(DateFormatter('%y'))
-    # ax.xaxis.set_minor_formatter(DateFormatter('%M'))
+    if bin_data.num_days <= 28:
+        ax.xaxis.set_major_locator(DayLocator())
+        ax.xaxis.set_minor_locator(HourLocator())
+        ax.xaxis.set_major_formatter(DateFormatter('%m-%d'))
+        ax.set_xlabel('Date', color=FG, size='x-large', weight='bold')
+    else:
+        ax.xaxis.set_major_locator(YearLocator())
+        ax.xaxis.set_minor_locator(MonthLocator())
+        ax.xaxis.set_major_formatter(DateFormatter('%y'))
+        ax.set_xlabel('Year', color=FG, size='x-large', weight='bold')
 
     legend = ax.legend(loc='upper left', numpoints=1, facecolor=BG, edgecolor=FG)
     for text in legend.get_texts():
@@ -352,7 +354,7 @@ def plot_qsos_rate(date_records, title, filename=None, start_date=None, end_date
     return
 
 
-def plot_qsos_band_rate(date_records, title, filename=None, start_date=None, end_date=None):
+def plot_qsos_band_rate(bin_data, title, filename=None, start_date=None, end_date=None):
     """
     make the chart
     """
@@ -364,17 +366,17 @@ def plot_qsos_band_rate(date_records, title, filename=None, start_date=None, end
     data = [[], [], [], [], [], [], [], [], [], []]
     dates = []
 
-    for counts in date_records:
-        qdate = counts['qdate']
+    for bin_dict in bin_data.data:
+        qdate = bin_dict['datetime']
         if (start_date is None or qdate >= start_date) and (end_date is None or qdate <= end_date):
             dates.append(qdate)
             sum = 0
             for i in range(0, len(challenge_bands)):
-                band_count = counts[challenge_bands[i]]
+                band_count = bin_dict[challenge_bands[i]]
                 sum += band_count
                 data[i].append(band_count)
 
-    dates, data = make_bins(dates, data)
+    # dates, data = make_bins(dates, data)
     maxy = 0
     for i in range(0, len(data[0])):
         total = 0
@@ -416,10 +418,15 @@ def plot_qsos_band_rate(date_records, title, filename=None, start_date=None, end
     ax.spines['top'].set_color(FG)
     ax.spines['bottom'].set_color(FG)
 
-    ax.xaxis.set_major_locator(YearLocator())
-    ax.xaxis.set_minor_locator(MonthLocator())
-    ax.xaxis.set_major_formatter(DateFormatter('%y'))
-    # ax.xaxis.set_minor_formatter(DateFormatter('%m'))
+    if bin_data.num_days <= 28:
+        ax.xaxis.set_major_locator(DayLocator())
+        ax.xaxis.set_minor_locator(HourLocator())
+        ax.xaxis.set_major_formatter(DateFormatter('%m-%d'))
+    else:
+        ax.xaxis.set_major_locator(YearLocator())
+        ax.xaxis.set_minor_locator(MonthLocator())
+        ax.xaxis.set_major_formatter(DateFormatter('%y'))
+
     legend = ax.legend(loc='upper left', numpoints=1, facecolor=BG, edgecolor=FG)
     for text in legend.get_texts():
         text.set_color(FG)
@@ -435,7 +442,7 @@ def plot_qsos_band_rate(date_records, title, filename=None, start_date=None, end
     return
 
 
-def plot_qsos_mode_rate(date_records, title, filename=None, start_date=None, end_date=None):
+def plot_qsos_mode_rate(bin_data, title, filename=None, start_date=None, end_date=None):
     """
     make the chart
     """
@@ -448,17 +455,17 @@ def plot_qsos_mode_rate(date_records, title, filename=None, start_date=None, end
     data = [[], [], [], []]
     dates = []
 
-    for counts in date_records:
-        qdate = counts['qdate']
+    for bin_dict in bin_data.data:
+        qdate = bin_dict['datetime']
         if (start_date is None or qdate >= start_date) and (end_date is None or qdate <= end_date):
             dates.append(qdate)
             sum = 0
             for i in range(0, len(adif.MODES)):
-                mode_count = counts[adif.MODES[i]]
+                mode_count = bin_dict[adif.MODES[i]]
                 sum += mode_count
                 data[i].append(mode_count)
 
-    dates, data = make_bins(dates, data)
+    # dates, data = make_bins(dates, data)
     maxy = 0
     for i in range(0, len(data[0])):
         total = 0
@@ -500,9 +507,15 @@ def plot_qsos_mode_rate(date_records, title, filename=None, start_date=None, end
     ax.spines['top'].set_color(FG)
     ax.spines['bottom'].set_color(FG)
 
-    ax.xaxis.set_major_locator(YearLocator())
-    ax.xaxis.set_minor_locator(MonthLocator())
-    ax.xaxis.set_major_formatter(DateFormatter('%y'))
+    if bin_data.num_days <= 28:
+        ax.xaxis.set_major_locator(DayLocator())
+        ax.xaxis.set_minor_locator(HourLocator())
+        ax.xaxis.set_major_formatter(DateFormatter('%m-%d'))
+    else:
+        ax.xaxis.set_major_locator(YearLocator())
+        ax.xaxis.set_minor_locator(MonthLocator())
+        ax.xaxis.set_major_formatter(DateFormatter('%y'))
+
     # ax.xaxis.set_minor_formatter(DateFormatter('%m'))
     legend = ax.legend(loc='upper left', numpoints=1, facecolor=BG, edgecolor=FG)
     for text in legend.get_texts():
@@ -519,7 +532,7 @@ def plot_qsos_mode_rate(date_records, title, filename=None, start_date=None, end
     return
 
 
-def plot_challenge_bands_by_date(date_records, title, filename=None, start_date=None, end_date=None):
+def plot_challenge_bands_by_date(bin_data, title, filename=None, start_date=None, end_date=None):
     """
     make the chart
     """
@@ -533,11 +546,11 @@ def plot_challenge_bands_by_date(date_records, title, filename=None, start_date=
     totals = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
     biggest = 0
-    for counts in date_records:
-        qdate = counts['qdate']
+    for bin_dict in bin_data.data:
+        qdate = bin_dict['datetime']
         data[0].append(qdate)
         for i in range(0, len(challenge_bands)):
-            totals[i] += counts['challenge_' + challenge_bands[i]]
+            totals[i] += bin_dict['challenge_' + challenge_bands[i]]
             if totals[i] > biggest:
                 biggest = totals[i]
             data[i + 1].append(totals[i])
@@ -572,9 +585,15 @@ def plot_challenge_bands_by_date(date_records, title, filename=None, start_date=
     ax.set_ylabel('DXCCs', color=FG, size='x-large', weight='bold')
     ax.set_xlabel('Date', color=FG, size='x-large', weight='bold')
 
-    ax.xaxis.set_major_locator(YearLocator())
-    ax.xaxis.set_minor_locator(MonthLocator())
-    ax.xaxis.set_major_formatter(DateFormatter('%y'))
+    if bin_data.num_days <= 28:
+        ax.xaxis.set_major_locator(DayLocator())
+        ax.xaxis.set_minor_locator(HourLocator())
+        ax.xaxis.set_major_formatter(DateFormatter('%m-%d'))
+    else:
+        ax.xaxis.set_major_locator(YearLocator())
+        ax.xaxis.set_minor_locator(MonthLocator())
+        ax.xaxis.set_major_formatter(DateFormatter('%y'))
+
     legend = ax.legend(loc='upper left', numpoints=1, facecolor=BG, edgecolor=FG)
     for text in legend.get_texts():
         text.set_color(FG)

@@ -153,7 +153,7 @@ def main():
                     new_lotw_qsls_header, new_lotw_qsls = adif.call_lotw(login=login_callsign,
                                                                          password=password,
                                                                          filename=lotw_adif_new_qsls_file_name,
-                                                                         qso_owncall=login_callsign,
+                                                                         qso_owncall=callsign,
                                                                          qso_qsl='yes',
                                                                          qso_qsldetail='yes',
                                                                          qso_qslsince=last_qsl_date,

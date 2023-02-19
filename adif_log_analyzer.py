@@ -41,9 +41,9 @@ import adif
 import qso_charts
 
 __author__ = 'Jeffrey B. Otterson, N1KDO'
-__copyright__ = 'Copyright 2017 - 2021 Jeffrey B. Otterson'
+__copyright__ = 'Copyright 2017 - 2023 Jeffrey B. Otterson'
 __license__ = 'Simplified BSD'
-__version__ = '0.07'
+__version__ = '0.08'
 
 logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S',
                     level=logging.INFO)
@@ -84,11 +84,32 @@ def crunch_data(qso_list):
     logging.debug('crunch_data')
     logging.info('%5d total LoTW QSOs' % len(qso_list))
     # sort list of QSOs into ascending range by qso_date
-    qso_list.sort(key=lambda q: q['qso_date'])
+    #qso_list.sort(key=lambda q: q['qso_date'])
+    for qso in qso_list:
+        app_lotw_qso_timestamp = qso.get('app_lotw_qso_timestamp')
+        if app_lotw_qso_timestamp is None:
+            logging.warning('app_lotw_qso_timestamp is None')
+            qso_date = qso.get('qso_date')
+            qso_time = qso.get('time_on') or ''
+            if len(qso_time) != 6:
+                qso_time = '120000'  # if no date, make mid-day
+            qso_iso_date = qso_date[0:4] + '-' + qso_date[4:6] + '-' + qso_date[6:8]
+            qso_iso_date += 'T' + qso_time[0:2] + ':' + qso_time[2:4] + ':' + qso_time[4:6] + '+00:00'
+            dt = datetime.datetime.fromisoformat(qso_iso_date)
+            qso['app_lotw_qso_timestamp'] = dt
+            # could/should create this here if missing
+        else:
+            app_lotw_qso_timestamp = app_lotw_qso_timestamp.replace('Z', '+00:00')
+            qso['app_lotw_qso_timestamp'] = datetime.datetime.fromisoformat(app_lotw_qso_timestamp)
+
+    qso_list.sort(key=lambda q: q['app_lotw_qso_timestamp'])
+
+    # now this can be binned.
+    bin_data = qso_charts.BinnedQSOData(qso_list[0]['app_lotw_qso_timestamp'],
+                                        qso_list[-1]['app_lotw_qso_timestamp'])
 
     dxcc_confirmed = {}
-    date_records = {}  # key is qso date.  value is dict, first record is summary data.
-    total_counts = {'qdate': 'total', 'worked': 0, 'confirmed': 0, 'new_dxcc': 0, 'challenge': 0}
+    total_counts = {'date': 'total', 'worked': 0, 'confirmed': 0, 'new_dxcc': 0, 'challenge': 0}
     for band in adif.BANDS:
         total_counts[band] = 0
         total_counts['challenge_' + band] = 0
@@ -102,7 +123,22 @@ def crunch_data(qso_list):
     n_challenge = 0
     check_cards = []
 
+    date_records = {}  # key is qso date.  value is dict, first record is summary data.
+    # initialize data
+    key_names = ['challenge', 'confirmed', 'new_dxcc', 'worked']
+    for band in adif.BANDS:
+        key_names.append(band)
+        key_names.append('challenge_' + band)
+    for mode in adif.MODES:
+        key_names.append(mode)
+    for i in range(0, bin_data.num_bins):
+        for key_name in key_names:
+            bin_data.data[i][key_name] = 0
+
     for qso in qso_list:
+        app_lotw_qso_timestamp = qso.get('app_lotw_qso_timestamp')
+        bin_num = bin_data.get_bin(app_lotw_qso_timestamp)
+        bin_dict = bin_data.data[bin_num]
         qso_date = qso.get('qso_date')
         qso_band = (qso.get('band') or '').upper()
         if qso_band == '':
@@ -220,6 +256,15 @@ def crunch_data(qso_list):
                 counts['new_dxcc'] += new_dxcc
                 counts['challenge'] += challenge
                 counts[mode] += 1
+
+                bin_dict['worked'] += 1
+                bin_dict['confirmed'] += confirmed
+                bin_dict['new_dxcc'] += new_dxcc
+                bin_dict['challenge'] += challenge
+                bin_dict[qso_band] += 1
+                bin_dict[mode] += 1
+                bin_dict['challenge_' + qso_band] += challenge
+
                 total_counts['worked'] += 1
                 total_counts['confirmed'] += confirmed
                 total_counts['new_dxcc'] += new_dxcc
@@ -244,6 +289,7 @@ def crunch_data(qso_list):
                 logging.warning("Invalid QSO record has no date ", qso)
 
     print('%5d counted worked' % n_worked)
+    print(f'{len(unique_calls):5d} unique calls')
     print('%5d confirmed' % n_confirmed)
     print('%5d verified' % n_verified)
     print('%5d challenge' % n_challenge)
@@ -281,7 +327,21 @@ def crunch_data(qso_list):
         counts['total_new_dxcc'] = total_new_dxcc
         counts['total_challenge'] = total_new_challenge
 
-        # date_records[qdate] = counts  # I think this is redundant.
+    total_worked = 0
+    total_confirmed = 0
+    total_dxcc = 0
+    total_challenge = 0
+    for bin_num in range(0, bin_data.num_bins):
+        bin_dict = bin_data.data[bin_num]
+        total_worked += bin_dict['worked']
+        total_confirmed += bin_dict['confirmed']
+        total_dxcc += bin_dict['new_dxcc']
+        total_challenge += bin_dict['challenge']
+        bin_dict['total_worked'] = total_worked
+        bin_dict['total_confirmed'] = total_confirmed
+        bin_dict['total_dxcc'] = total_dxcc
+        bin_dict['total_challenge'] = total_challenge
+
     #        print(("%s  %5d  %5d  %5d  %5d  %5d  %5d  %5d  %5d") % (qdate.strftime('%Y-%m-%d'),
     #                                                               counts['worked'],
     #                                                               counts['confirmed'],
@@ -336,44 +396,57 @@ def crunch_data(qso_list):
         # if key >= start_date and key <= end_date:
         results.append(date_records[key])
     logging.debug('crunched data for %d log days' % len(results))
-    return results
+    return bin_data
 
 
 def draw_charts(qso_list, callsign, start_date=None, end_date=None):
     logging.debug('draw_charts')
     callsign = callsign.upper()
+    file_callsign = callsign.replace('/', '-')
     logging.info('crunching QSO data')
-    date_records = crunch_data(qso_list)
+    bin_data = crunch_data(qso_list)
 
     # now draw the charts
     logging.info('drawing QSOs chart')
-    qso_charts.plot_qsos_by_date(date_records, callsign + ' QSOs',
-                                 callsign + '_qsos_by_date.png',
+    qso_charts.plot_qsos_by_date(bin_data,
+                                 callsign + ' QSOs',
+                                 file_callsign + '_qsos_by_date.png',
                                  start_date=start_date,
                                  end_date=end_date)
     logging.info('drawing DXCC and Challenge QSLs chart')
-    qso_charts.plot_dxcc_qsos(date_records, callsign + ' DXCC and Challenge QSLs',
-                              callsign + '_dxcc_qsos.png', start_date=start_date,
+    qso_charts.plot_dxcc_qsos(bin_data,
+                              callsign + ' DXCC and Challenge QSLs',
+                              file_callsign + '_dxcc_qsos.png',
+                              start_date=start_date,
                               end_date=end_date)
     logging.info('drawing QSO Rate chart')
-    qso_charts.plot_qsos_rate(date_records, callsign + ' QSO Rate',
-                              callsign + '_qso_rate.png', start_date=start_date,
+    qso_charts.plot_qsos_rate(bin_data,
+                              callsign + ' QSO Rate',
+                              file_callsign + '_qso_rate.png',
+                              start_date=start_date,
                               end_date=end_date)
     logging.info('drawing QSO Rate by Band chart')
-    qso_charts.plot_qsos_band_rate(date_records, callsign + ' QSO Rate by Band',
-                                   callsign + '_qsos_band_rate.png',
-                                   start_date=start_date, end_date=end_date)
+    qso_charts.plot_qsos_band_rate(bin_data,
+                                   callsign + ' QSO Rate by Band',
+                                   file_callsign + '_qsos_band_rate.png',
+                                   start_date=start_date,
+                                   end_date=end_date)
     logging.info('drawing QSO Rate by Mode chart')
-    qso_charts.plot_qsos_mode_rate(date_records, callsign + ' QSO Rate by Mode',
-                                   callsign + '_qsos_mode_rate.png',
-                                   start_date=start_date, end_date=end_date)
+    qso_charts.plot_qsos_mode_rate(bin_data,
+                                   callsign + ' QSO Rate by Mode',
+                                   file_callsign + '_qsos_mode_rate.png',
+                                   start_date=start_date,
+                                   end_date=end_date)
     logging.info('drawing Challenge Band Slots chart')
-    qso_charts.plot_challenge_bands_by_date(date_records, callsign + ' Challenge Band Slots',
-                                            callsign + '_challenge_bands_by_date.png', start_date=start_date,
+    qso_charts.plot_challenge_bands_by_date(bin_data, callsign + ' Challenge Band Slots',
+                                            file_callsign + '_challenge_bands_by_date.png', start_date=start_date,
                                             end_date=end_date)
     logging.info('drawing Grid Squares Worked map')
-    qso_charts.plot_map(qso_list, callsign + ' Grid Squares Worked',
-                        callsign + '_grids_map.png', start_date=start_date, end_date=end_date)
+    qso_charts.plot_map(qso_list,
+                        callsign + ' Grid Squares Worked',
+                        file_callsign + '_grids_map.png',
+                        start_date=start_date,
+                        end_date=end_date)
 
 
 def main():
