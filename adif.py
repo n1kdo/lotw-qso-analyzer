@@ -534,13 +534,13 @@ def call_lotw(**params):
     return header, sorted(qsos, key=lambda qso: qso_key(qso))
 
 
-def get_lotw_adif(username, password, filename=None, qso_qsorxsince='1900-01-01'):
+def get_lotw_adif(username, password, callsign, filename=None, qso_qsorxsince='1900-01-01'):
     return call_lotw(login=username,
                      password=password,
                      filename=filename,
                      qso_query='1',
                      qso_qsl='no',
-                     qso_owncall=username,
+                     qso_owncall=callsign,
                      qso_qsldetail='yes',
                      qso_qsorxsince=qso_qsorxsince,
                      )

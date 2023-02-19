@@ -8,9 +8,9 @@ only to analyze it.
 """
 
 __author__ = 'Jeffrey B. Otterson, N1KDO'
-__copyright__ = 'Copyright 2020, 2021 Jeffrey B. Otterson'
+__copyright__ = 'Copyright 2020, 2021, 2023 Jeffrey B. Otterson'
 __license__ = 'Simplified BSD'
-__version__ = '0.02'
+__version__ = '0.05'
 
 import adif
 import adif_log_analyzer
@@ -68,16 +68,23 @@ def get_password(password):
 
 
 def main():
+    login_callsign = ''
     callsign = ''
     password = None
     working_dir = ''
-    while len(callsign) < 3:
-        callsign = input('Please enter your callsign: ')
+    while len(login_callsign) < 3:
+        login_callsign = input('Please enter your lotw login callsign: ')
 
-    lotw_adif_file_name = '{}{}-lotw.adif'.format(working_dir, callsign)
-    lotw_adif_new_qsos_file_name = '{}{}-lotw-new-qsos.adif'.format(working_dir, callsign)
-    lotw_adif_new_qsls_file_name = '{}{}-lotw-new-qsls.adif'.format(working_dir, callsign)
-    dxcc_qsls_file_name = '{}{}-cards.adif'.format(working_dir, callsign)
+    callsign = input(f'Please enter your callsign ({login_callsign}): ')
+    if callsign == '':
+        callsign = login_callsign
+
+    filename_callsign = callsign.replace('/', '-')
+
+    lotw_adif_file_name = '{}{}-lotw.adif'.format(working_dir, filename_callsign)
+    lotw_adif_new_qsos_file_name = '{}{}-lotw-new-qsos.adif'.format(working_dir, filename_callsign)
+    lotw_adif_new_qsls_file_name = '{}{}-lotw-new-qsls.adif'.format(working_dir, filename_callsign)
+    dxcc_qsls_file_name = '{}{}-cards.adif'.format(working_dir, filename_callsign)
 
     if os.path.exists(lotw_adif_file_name):
         lotw_header, lotw_qsos = adif.read_adif_file(lotw_adif_file_name)
@@ -121,7 +128,7 @@ def main():
             exit()
         elif choice == '1':
             password = get_password(password)
-            lotw_header, lotw_qsos = adif.get_lotw_adif(callsign, password, filename=lotw_adif_file_name)
+            lotw_header, lotw_qsos = adif.get_lotw_adif(login_callsign, password, callsign, filename=lotw_adif_file_name)
         elif choice == '2':
             if last_qso_date is None:
                 print('Cannot update, no base, download first.')
@@ -130,8 +137,9 @@ def main():
                 logging.info('fetching new QSOs')
                 new_lotw_qsos_header = None
                 try:
-                    new_lotw_qsos_header, new_lotw_qsos = adif.get_lotw_adif(callsign,
+                    new_lotw_qsos_header, new_lotw_qsos = adif.get_lotw_adif(login_callsign,
                                                                              password,
+                                                                             callsign,
                                                                              filename=lotw_adif_new_qsos_file_name,
                                                                              qso_qsorxsince=last_qso_date)
                     new_last_qso_date = lotw_header.get('app_lotw_lastqsorx')
@@ -142,10 +150,10 @@ def main():
                     if new_lotw_qsos_header.get('app_lotw_lastqsorx') is not None:
                         lotw_header['app_lotw_lastqsorx'] = new_lotw_qsos_header.get('app_lotw_lastqsorx')
 
-                    new_lotw_qsls_header, new_lotw_qsls = adif.call_lotw(login=callsign,
+                    new_lotw_qsls_header, new_lotw_qsls = adif.call_lotw(login=login_callsign,
                                                                          password=password,
                                                                          filename=lotw_adif_new_qsls_file_name,
-                                                                         qso_owncall=callsign,
+                                                                         qso_owncall=login_callsign,
                                                                          qso_qsl='yes',
                                                                          qso_qsldetail='yes',
                                                                          qso_qslsince=last_qsl_date,
@@ -159,7 +167,7 @@ def main():
 
         elif choice == '3':
             password = get_password(password)
-            dxcc_qsls_header, dxcc_qsl_cards = adif.get_qsl_cards(callsign, password, dxcc_qsls_file_name)
+            dxcc_qsls_header, dxcc_qsl_cards = adif.get_qsl_cards(login_callsign, password, dxcc_qsls_file_name)
         elif choice == '4':  # save lotw qsos data
             adif.write_adif_file(lotw_header, lotw_qsos, lotw_adif_file_name, abridge_results=False)
         elif choice == '5':
