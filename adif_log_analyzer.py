@@ -99,8 +99,11 @@ def crunch_data(qso_list):
             qso['app_lotw_qso_timestamp'] = dt
             # could/should create this here if missing
         else:
-            app_lotw_qso_timestamp = app_lotw_qso_timestamp.replace('Z', '+00:00')
-            qso['app_lotw_qso_timestamp'] = datetime.datetime.fromisoformat(app_lotw_qso_timestamp)
+            if isinstance(app_lotw_qso_timestamp, str):
+                app_lotw_qso_timestamp = app_lotw_qso_timestamp.replace('Z', '+00:00')
+                qso['app_lotw_qso_timestamp'] = datetime.datetime.fromisoformat(app_lotw_qso_timestamp)
+            elif not isinstance(app_lotw_qso_timestamp, datetime.datetime):
+                logging.error(f'app_lotw_qso_timestamp is of type {type(app_lotw_qso_timestamp)}')
 
     qso_list.sort(key=lambda q: q['app_lotw_qso_timestamp'])
 
@@ -113,6 +116,10 @@ def crunch_data(qso_list):
     for band in adif.BANDS:
         total_counts[band] = 0
         total_counts['challenge_' + band] = 0
+        for mode in adif.MODES:
+            total_counts[f'{band}_{mode}'] = 0
+    for mode in adif.MODES:
+        total_counts[mode] = 0
 
     unique_calls = {}
     first_date = None
@@ -274,6 +281,8 @@ def crunch_data(qso_list):
                     counts[qso_band] += 1
                     total_counts['challenge_' + qso_band] += challenge
                     total_counts[qso_band] += 1
+                    total_counts[f'{qso_band}_{mode}'] += 1
+                total_counts[mode] += 1
 
                 if last_date is None or qdate > last_date:
                     last_date = qdate
@@ -297,8 +306,26 @@ def crunch_data(qso_list):
         c = int(total_counts['challenge_' + band])
         if c > 0:
             print('{:5d} {}'.format(c, band))
-
     print('%5d total dxcc' % len(dxcc_confirmed))
+    print()
+    print('             QSOs band/mode')
+    print('  BAND     CW   DATA  IMAGE  PHONE  TOTAL')
+    for band in adif.BANDS:
+        c = int(total_counts[band])
+        if c > 0:
+            cw = total_counts[f'{band}_CW']
+            data = total_counts[f'{band}_DATA']
+            image = total_counts[f'{band}_IMAGE']
+            phone = total_counts[f'{band}_PHONE']
+            print(f'{band:>6s}  {cw:5d}  {data:5d}  {image:5d}  {phone:5d}  {c:5d}')
+
+    cw = total_counts[f'CW']
+    data = total_counts[f'DATA']
+    image = total_counts[f'IMAGE']
+    phone = total_counts[f'PHONE']
+    c = cw + data + image + phone
+    print(f' TOTAL  {cw:5d}  {data:5d}  {image:5d}  {phone:5d}  {c:5d}')
+
     print()
     print('%5d unique log dates' % len(date_records))
     print('first QSO date: ' + first_date.strftime('%Y-%m-%d'))
@@ -309,9 +336,6 @@ def crunch_data(qso_list):
     total_confirmed = 0
     total_new_dxcc = 0
     total_new_challenge = 0
-    band_totals = {}
-    #    for band in BANDS:
-    #        band_totals[band] = 0
 
     for qdate in sorted(date_records.keys()):
         counts = date_records[qdate]
@@ -441,9 +465,9 @@ def draw_charts(qso_list, callsign, start_date=None, end_date=None):
     qso_charts.plot_challenge_bands_by_date(bin_data, callsign + ' Challenge Band Slots',
                                             file_callsign + '_challenge_bands_by_date.png', start_date=start_date,
                                             end_date=end_date)
-    logging.info('drawing Grid Squares Worked map')
+    logging.info('drawing Grid Squares Confirmed map')
     qso_charts.plot_map(qso_list,
-                        callsign + ' Grid Squares Worked',
+                        callsign + ' Grid Squares Confirmed',
                         file_callsign + '_grids_map.png',
                         start_date=start_date,
                         end_date=end_date)

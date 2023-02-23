@@ -635,7 +635,7 @@ def grid_square_box(grid):
     return sgeom.box(lon, lat, lon+2, lat+1)
 
 
-def plot_map(qsos, title, filename=None, start_date=None, end_date=None):
+def plot_map(qsos, title, filename=None, start_date=None, end_date=None, confirmed_only=True):
     """
     make the chart
     """
@@ -643,14 +643,18 @@ def plot_map(qsos, title, filename=None, start_date=None, end_date=None):
     grids = {}
     most = 0
     for qso in qsos:
-        grid = qso.get('gridsquare')
-        if grid is not None:
-            grid = grid[0:4].upper()
-            if grid not in grids:
-                grids[grid] = 0
-            grids[grid] += 1
-            if grids[grid] > most:
-                most = grids[grid]
+        qsl_rcvd = (qso.get('qsl_rcvd') or 'N').lower()
+        if not confirmed_only or qsl_rcvd != 'n':
+            grid = qso.get('gridsquare')
+            if grid is not None:
+                if qsl_rcvd == 'n':
+                    logging.info('QSO has grid but is not confirmed.')
+                grid = grid[0:4].upper()
+                if grid not in grids:
+                    grids[grid] = 0
+                grids[grid] += 1
+                if grids[grid] > most:
+                    most = grids[grid]
 
     fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100)
     projection = ccrs.PlateCarree(central_longitude=-110)
