@@ -69,9 +69,8 @@ def get_password(password):
 
 def main():
     login_callsign = ''
-    callsign = ''
     password = None
-    working_dir = ''
+    data_dir = 'data/'
     while len(login_callsign) < 3:
         login_callsign = input('Please enter your lotw login callsign: ')
 
@@ -81,10 +80,10 @@ def main():
 
     filename_callsign = callsign.replace('/', '-')
 
-    lotw_adif_file_name = '{}{}-lotw.adif'.format(working_dir, filename_callsign)
-    lotw_adif_new_qsos_file_name = '{}{}-lotw-new-qsos.adif'.format(working_dir, filename_callsign)
-    lotw_adif_new_qsls_file_name = '{}{}-lotw-new-qsls.adif'.format(working_dir, filename_callsign)
-    dxcc_qsls_file_name = '{}{}-cards.adif'.format(working_dir, filename_callsign)
+    lotw_adif_file_name = '{}{}-lotw.adif'.format(data_dir, filename_callsign)
+    lotw_adif_new_qsos_file_name = '{}{}-lotw-new-qsos.adif'.format(data_dir, filename_callsign)
+    lotw_adif_new_qsls_file_name = '{}{}-lotw-new-qsls.adif'.format(data_dir, filename_callsign)
+    dxcc_qsls_file_name = '{}{}-cards.adif'.format(data_dir, filename_callsign)
 
     if os.path.exists(lotw_adif_file_name):
         lotw_header, lotw_qsos = adif.read_adif_file(lotw_adif_file_name)

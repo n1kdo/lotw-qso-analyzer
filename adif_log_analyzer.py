@@ -48,6 +48,7 @@ __version__ = '0.08'
 logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S',
                     level=logging.INFO)
 logging.Formatter.converter = time.gmtime
+charts_dir = 'charts/'
 
 
 def date_range(start_date, end_date):
@@ -394,7 +395,7 @@ def crunch_data(qso_list):
         calls_by_qso = sorted(calls_by_qso, key=lambda count: count[1], reverse=True)
 
         # show top calls
-        number_of_top_calls = 40
+        number_of_top_calls = 50
         print()
         print('Top %d calls' % number_of_top_calls)
         print()
@@ -426,7 +427,7 @@ def crunch_data(qso_list):
 def draw_charts(qso_list, callsign, start_date=None, end_date=None):
     logging.debug('draw_charts')
     callsign = callsign.upper()
-    file_callsign = callsign.replace('/', '-')
+    file_callsign = charts_dir + callsign.replace('/', '-')
     logging.info('crunching QSO data')
     bin_data = crunch_data(qso_list)
 
