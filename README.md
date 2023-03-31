@@ -14,17 +14,17 @@ it can use DXKeeper ADIF, too.
 It uses Matplotlib to make some graphics that show your DXCC progress (as well as total QSOS)
 over time.
 
-![Example](N1KDO_dxcc_qsos.png)
+![Example](charts/N1KDO_dxcc_qsos.png)
 
-![Example](N1KDO_qsos_by_date.png)
+![Example](charts/N1KDO_qsos_by_date.png)
 
-![Example](N1KDO_qso_rate.png)
+![Example](charts/N1KDO_qso_rate.png)
 
-![Example](N1KDO_qsos_band_rate.png)
+![Example](charts/N1KDO_qsos_band_rate.png)
 
-![Example](N1KDO_challenge_bands_by_date.png)
+![Example](charts/N1KDO_challenge_bands_by_date.png)
 
-![Example](N1KDO_grids_map.png)
+![Example](charts/N1KDO_grids_map.png)
 
 I might do more work on this, or I might not.
  
@@ -37,5 +37,5 @@ It is still very much a work-in-progress.
 `docker build -t lotw .`
 `docker run -v output:/app/output/ -it lotw`
 
-n1kdo 20210411
+n1kdo 20230331
 

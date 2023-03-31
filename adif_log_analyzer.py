@@ -109,8 +109,14 @@ def crunch_data(qso_list):
     qso_list.sort(key=lambda q: q['app_lotw_qso_timestamp'])
 
     # now this can be binned.
-    bin_data = qso_charts.BinnedQSOData(qso_list[0]['app_lotw_qso_timestamp'],
-                                        qso_list[-1]['app_lotw_qso_timestamp'])
+    first_datetime = qso_list[0]['app_lotw_qso_timestamp']
+    last_datetime = qso_list[-1]['app_lotw_qso_timestamp']
+
+    # always start on a day boundary
+    first_datetime = first_datetime.replace(hour=0, minute=0, second=0, microsecond=0)
+    last_datetime = last_datetime.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+    bin_data = qso_charts.BinnedQSOData(first_datetime, last_datetime)
 
     dxcc_confirmed = {}
     total_counts = {'date': 'total', 'worked': 0, 'confirmed': 0, 'new_dxcc': 0, 'challenge': 0}
@@ -488,8 +494,10 @@ def main():
 
     while len(filename) < 4:
         filename = input('Enter adif file name: ')
-        if not os.path.exists(filename):
-            filename = ''
+
+    filename = 'data/' + filename
+    if not os.path.exists(filename):
+        filename = ''
 
     adif_header, qso_list = adif.read_adif_file(filename)
     logging.info('read {} qsls from {}'.format(len(qso_list), filename))

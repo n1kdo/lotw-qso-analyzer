@@ -23,26 +23,28 @@ BG = 'w'
 class BinnedQSOData:
 
     def __init__(self, first_datetime, last_datetime):
-        # always start on a day boundary
-        self.offset = int(first_datetime.replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
+        self.offset = int(first_datetime.timestamp())
         days = (last_datetime - first_datetime)
         self.num_days = days.days + 1
 
-        if self.num_days <= 7:
+        if self.num_days <= 7:  # a week
             self.bin_size = 3600  # 1 hour
             self.num_bins = self.num_days * 24 + 1
             self.bin_size = 60 * 30  # 1/2 hour
             self.num_bins = self.num_days * 24 * 2 + 1
-        elif self.num_days <= 28:
+        elif self.num_days <= 28:  # a month
             self.bin_size = 3600 * 12  # 12 hours
             self.num_bins = self.num_days * 2 + 1
-        elif self.num_days <= 365:
+        elif self.num_days <= 365:  # 1 year
             self.bin_size = 86400  # 1 day
             self.num_bins = self.num_days + 1
-        elif self.num_days <= 3650:
+        elif self.num_days <= 3653:  # 10 years
             self.bin_size = 86400 * 7  # 7 days
             self.num_bins = self.num_days // 7 + 1
-        else:
+        elif self.num_days <= 7305:  # 20 years
+            self.bin_size = 86400 * 7  # 7 days
+            self.num_bins = self.num_days // 7 + 1
+        else:  # > 20 years
             self.bin_size = 86400 * 28  # 4 weeks
             self.num_bins = self.num_days // 28 + 1
 
