@@ -43,7 +43,7 @@ import qso_charts
 __author__ = 'Jeffrey B. Otterson, N1KDO'
 __copyright__ = 'Copyright 2017 - 2023 Jeffrey B. Otterson'
 __license__ = 'Simplified BSD'
-__version__ = '0.08'
+__version__ = '0.10.0'
 
 logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S',
                     level=logging.INFO)

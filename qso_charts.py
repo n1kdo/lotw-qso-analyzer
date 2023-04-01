@@ -304,9 +304,11 @@ def plot_qsos_rate(bin_data, title, filename=None, start_date=None, end_date=Non
     offsets = np.zeros((len(dates)), np.int32)
     colors = ['#ff3333', '#cccc00', '#009900', '#000099']
     labels = ['Logged', 'Confirmed', 'Challenge', 'DXCC Entity']
-    width = bin_data.num_days / 365
+
+    width = bin_data.num_bins / 100
     logging.debug(f'width {width}')
     logging.debug(f'num_bins {bin_data.num_bins}')
+
     d = np.array(data[0])
     ax.bar(dates, d, width, bottom=offsets, color=colors[0], label=labels[3])
     offsets += d
@@ -378,7 +380,6 @@ def plot_qsos_band_rate(bin_data, title, filename=None, start_date=None, end_dat
                 sum += band_count
                 data[i].append(band_count)
 
-    # dates, data = make_bins(dates, data)
     maxy = 0
     for i in range(0, len(data[0])):
         total = 0
@@ -386,7 +387,6 @@ def plot_qsos_band_rate(bin_data, title, filename=None, start_date=None, end_dat
             total += data[j][i]
         if total > maxy:
             maxy = total
-    delta = (dates[-1] - dates[0]).days
 
     fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True)
     ax = fig.add_subplot(111, facecolor=BG)
@@ -400,12 +400,15 @@ def plot_qsos_band_rate(bin_data, title, filename=None, start_date=None, end_dat
     ax.set_xlim(start_date, end_date)
     ax.set_ylim(0, auto_scale(maxy))
 
-    width = delta / 365
+    width = bin_data.num_bins / 100
+    logging.debug(f'num_bins={bin_data.num_bins}')
+    logging.debug(f'width={width}')
 
     offset = np.zeros((len(dates)), dtype=np.int32)
     for i in range(0, len(challenge_bands)):
         ta = np.array(data[i])
-        ax.bar(dates, ta, width, bottom=offset, color=colors[i], label=challenge_bands[i])
+        ax.bar(dates, ta, width=width, bottom=offset, color=colors[i], label=challenge_bands[i])
+        # ax.bar(dates, ta, bottom=offset, color=colors[i], label=challenge_bands[i])
         offset += ta
 
     ax.grid(True)
@@ -450,9 +453,6 @@ def plot_qsos_mode_rate(bin_data, title, filename=None, start_date=None, end_dat
     """
     logging.debug('plot_qsos_mode_rate(...,%s, %s)' % (title, filename))
 
-    #challenge_bands = ['160M', '80M', '40M', '30M', '20M', '17M', '15M', '12M', '10M', '6M']
-    #colors = ['violet', 'g', 'b', 'c', 'r', '#ffff00', '#ff6600', '#00ff00', '#663300', '#00ffff']
-    # currently there are 4 modes defined in adif.MODES
     colors = ['r', 'g', 'c', 'b']
     data = [[], [], [], []]
     dates = []
@@ -475,7 +475,6 @@ def plot_qsos_mode_rate(bin_data, title, filename=None, start_date=None, end_dat
             total += data[j][i]
         if total > maxy:
             maxy = total
-    delta = (dates[-1] - dates[0]).days
 
     fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True)
     ax = fig.add_subplot(111, facecolor=BG)
@@ -489,7 +488,9 @@ def plot_qsos_mode_rate(bin_data, title, filename=None, start_date=None, end_dat
     ax.set_xlim(start_date, end_date)
     ax.set_ylim(0, auto_scale(maxy))
 
-    width = delta / 365
+    width = bin_data.num_bins / 100
+    logging.debug(f'num_bins={bin_data.num_bins}')
+    logging.debug(f'width={width}')
 
     offset = np.zeros((len(dates)), dtype=np.int32)
     for i in range(0, len(adif.MODES)):
@@ -557,7 +558,6 @@ def plot_challenge_bands_by_date(bin_data, title, filename=None, start_date=None
                 biggest = totals[i]
             data[i + 1].append(totals[i])
 
-    # {'pad': 0.10}
     fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True)
 
     ax = fig.add_subplot(111, facecolor=BG)
