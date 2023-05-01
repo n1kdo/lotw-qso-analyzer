@@ -133,7 +133,7 @@ def main():
                 print('Cannot update, no base, download first.')
             else:
                 password = get_password(password)
-                logging.info('fetching new QSOs')
+                logging.info(f'fetching new QSOs since {last_qso_date}')
                 new_lotw_qsos_header = None
                 try:
                     new_lotw_qsos_header, new_lotw_qsos = adif.get_lotw_adif(login_callsign,
@@ -145,10 +145,10 @@ def main():
                     logging.info(
                         'New last QSO Received {}, {} QSO records'.format(new_last_qso_date, len(new_lotw_qsos)))
                     lotw_header, lotw_qsos = adif.merge(lotw_header, lotw_qsos, new_lotw_qsos_header, new_lotw_qsos)
-                    logging.info('fetching new QSLs')
                     if new_lotw_qsos_header.get('app_lotw_lastqsorx') is not None:
                         lotw_header['app_lotw_lastqsorx'] = new_lotw_qsos_header.get('app_lotw_lastqsorx')
 
+                    logging.info(f'fetching new QSLs since {last_qsl_date}')
                     new_lotw_qsls_header, new_lotw_qsls = adif.call_lotw(login=login_callsign,
                                                                          password=password,
                                                                          filename=lotw_adif_new_qsls_file_name,

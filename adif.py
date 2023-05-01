@@ -1,5 +1,6 @@
 import logging
 import re
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -486,8 +487,10 @@ def call_lotw(**params):
 
     data = urllib.parse.urlencode(params)
     req = urllib.request.Request(url + '?' + data)
+    t0 = time.time()
     try:
         response = urllib.request.urlopen(req)
+        t1 = time.time()
     except urllib.error.HTTPError as q:
         print('problem with request ' + req.full_url)
         print(q.reason)
@@ -526,11 +529,10 @@ def call_lotw(**params):
                     qso = {}
         else:
             qso[item_name] = item_value
-        print('records loaded: {}'.format(len(qsos)), end='\r')
-    print()
     if adif_file is not None:
         adif_file.close()
-    logging.debug('Retrieved %d records from LoTW.' % len(qsos))
+    t2 = time.time()
+    logging.info(f'Fetched {len(qsos)} records in {t1-t0:.3f} sec, parsing took {t2-t1:.3f} sec.')
     return header, sorted(qsos, key=lambda qso: qso_key(qso))
 
 

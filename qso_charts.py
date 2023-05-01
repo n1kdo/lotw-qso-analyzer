@@ -205,22 +205,26 @@ def plot_dxcc_qsos(bin_data, title, filename=None, start_date=None, end_date=Non
 
     yticks = [0, 50, 100, 150, 200, 250, 300, 350]
     ax.set_yticks(yticks)
-    minor_ticks = [340, total_dxcc_data[-1]]
-    ax.set_yticks(minor_ticks, minor=True)  # current number of dxcc entities
-    ax.yaxis.set_minor_formatter(FormatStrFormatter('%d'))
+    if False:
+        minor_ticks = [340, total_dxcc_data[-1]]
+        ax.set_yticks(minor_ticks, minor=True)  # current number of dxcc entities
+        ax.tick_params(axis='y', which='minor', direction='in', right=False, labelcolor='r', pad=-24)
+        ax.yaxis.set_minor_formatter(FormatStrFormatter('%d'))
 
-    ax.tick_params(axis='y', colors=FG, which='both', direction='out', right=False, labelcolor='r')
+    ax.tick_params(axis='y', colors=FG, which='major', direction='out', right=False, labelcolor='r')
     ax.tick_params(axis='x', colors=FG, which='both', direction='out', top=False)
     ax.set_ylabel('DXCCs', color='r', size='x-large', weight='bold')
     axb.set_ylabel('Challenge', color='g', size='x-large', weight='bold')
     challenge_ticks = [500, 1000, 1500, 2000, 2500, 3000, 3500]
+    axb.tick_params(axis='y', colors=FG, which='major', direction='out', left=False, labelcolor='g')
     axb.set_yticks(challenge_ticks)
-    current_challenge_label_distance = total_challenge_data[-1] % 500
-    #print(current_challenge_label_distance)
-    if current_challenge_label_distance > 20 and current_challenge_label_distance < 480:
-        axb.set_yticks([total_challenge_data[-1]], minor=True)
-        axb.yaxis.set_minor_formatter(FormatStrFormatter('%d'))
-    axb.tick_params(axis='y', colors=FG, which='both', direction='out', left=False, labelcolor='g')
+    if False:
+        current_challenge_label_distance = total_challenge_data[-1] % 500
+        #print(current_challenge_label_distance)
+        if current_challenge_label_distance > 20 and current_challenge_label_distance < 480:
+            axb.set_yticks([total_challenge_data[-1]], minor=True)
+            axb.yaxis.set_minor_formatter(FormatStrFormatter('%d'))
+    axb.tick_params(axis='y', colors=FG, which='minor', direction='out', left=False, labelcolor='g', pad=-72)
 
     if bin_data.num_days <= 28:
         ax.xaxis.set_major_locator(DayLocator())
@@ -236,7 +240,8 @@ def plot_dxcc_qsos(bin_data, title, filename=None, start_date=None, end_date=Non
     lns = lns1 + lns2
     labs = [l.get_label() for l in lns]
 
-    legend = ax.legend(lns, labs, loc='upper left', numpoints=1, facecolor=BG, edgecolor=FG)
+    # legend = ax.legend(lns, labs, loc='upper left', numpoints=1, facecolor=BG, edgecolor=FG)
+    legend = ax.legend(lns, labs, loc='lower right', numpoints=1, facecolor=BG, edgecolor=FG)
     for text in legend.get_texts():
         text.set_color(FG)
 
