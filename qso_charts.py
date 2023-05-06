@@ -102,8 +102,9 @@ def plot_qsos_by_date(bin_data, title, filename=None, start_date=None, end_date=
         if worked > biggest:
             biggest = worked
 
-    # {'pad': 0.10}
     fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True)
+    dts = datetime.datetime.now().strftime('%Y-%m-%d')
+    fig.text(1.0, 0.0, dts, fontsize=12, color='black', ha='right', va='bottom', transform=fig.transFigure)
 
     ax = fig.add_subplot(111, facecolor=BG)
 
@@ -178,8 +179,10 @@ def plot_dxcc_qsos(bin_data, title, filename=None, start_date=None, end_date=Non
     number_dxcc = bin_data.data[-1]['total_dxcc']
     number_challenge = bin_data.data[-1]['total_challenge']
 
-    # {'pad': 0.10}
     fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True)
+
+    dts = datetime.datetime.now().strftime('%Y-%m-%d')
+    fig.text(1.0, 0.0, dts, fontsize=12, color='black', ha='right', va='bottom', transform=fig.transFigure)
 
     ax = fig.add_subplot(111, facecolor=BG)
 
@@ -290,6 +293,10 @@ def plot_qsos_rate(bin_data, title, filename=None, start_date=None, end_date=Non
             data[3].append(worked)
 
     fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True)
+
+    dts = datetime.datetime.now().strftime('%Y-%m-%d')
+    fig.text(1.0, 0.0, dts, fontsize=12, color='black', ha='right', va='bottom', transform=fig.transFigure)
+
     ax = fig.add_subplot(111, facecolor=BG)
     ax.set_title(title, color=FG, size='xx-large', weight='bold')
 
@@ -394,6 +401,10 @@ def plot_qsos_band_rate(bin_data, title, filename=None, start_date=None, end_dat
             maxy = total
 
     fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True)
+
+    dts = datetime.datetime.now().strftime('%Y-%m-%d')
+    fig.text(1.0, 0.0, dts, fontsize=12, color='black', ha='right', va='bottom', transform=fig.transFigure)
+
     ax = fig.add_subplot(111, facecolor=BG)
     ax.set_title(title, color=FG, size='xx-large', weight='bold')
 
@@ -482,6 +493,10 @@ def plot_qsos_mode_rate(bin_data, title, filename=None, start_date=None, end_dat
             maxy = total
 
     fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True)
+
+    dts = datetime.datetime.now().strftime('%Y-%m-%d')
+    fig.text(1.0, 0.0, dts, fontsize=12, color='black', ha='right', va='bottom', transform=fig.transFigure)
+
     ax = fig.add_subplot(111, facecolor=BG)
     ax.set_title(title, color=FG, size='xx-large', weight='bold')
 
@@ -564,6 +579,9 @@ def plot_challenge_bands_by_date(bin_data, title, filename=None, start_date=None
             data[i + 1].append(totals[i])
 
     fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True)
+
+    dts = datetime.datetime.now().strftime('%Y-%m-%d')
+    fig.text(1.0, 0.0, dts, fontsize=12, color='black', ha='right', va='bottom', transform=fig.transFigure)
 
     ax = fig.add_subplot(111, facecolor=BG)
 
@@ -664,6 +682,10 @@ def plot_map(qsos, title, filename=None, start_date=None, end_date=None, confirm
                     most = grids[grid]
 
     fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100)
+
+    dts = datetime.datetime.now().strftime('%Y-%m-%d')
+    fig.text(1.0, 0.0, dts, fontsize=12, color='black', ha='right', va='bottom', transform=fig.transFigure)
+
     projection = ccrs.PlateCarree(central_longitude=-110)
     ax = fig.add_axes([0, 0, 1, 1], projection=projection)
 
