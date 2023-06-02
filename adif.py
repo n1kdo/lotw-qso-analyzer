@@ -487,6 +487,7 @@ def call_lotw(**params):
 
     data = urllib.parse.urlencode(params)
     req = urllib.request.Request(url + '?' + data)
+    print(f'calling {url}?{data} ...')
     t0 = time.time()
     try:
         response = urllib.request.urlopen(req)
@@ -507,7 +508,6 @@ def call_lotw(**params):
             print(line)
             print(inst)
             print('Problem downloading from LoTW...')
-            pass
 
         line = line.strip()
         if first_line:

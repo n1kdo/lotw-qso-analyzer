@@ -200,7 +200,7 @@ def plot_dxcc_qsos(bin_data, title, filename=None, start_date=None, end_date=Non
 
     lns1 = ax.plot_date(dates, total_dxcc_data,
                         fmt='r-',
-                        mew=0, markersize=5, label='DXCC ({:d})'.format(number_dxcc))
+                        mew=0, markersize=5, label='Current DXCCs ({:d})'.format(number_dxcc))
     lns2 = axb.plot_date(dates, total_challenge_data,
                          fmt='g:',
                          mew=0, markersize=5, label='Challenge ({:d})'.format(number_challenge))
@@ -243,8 +243,8 @@ def plot_dxcc_qsos(bin_data, title, filename=None, start_date=None, end_date=Non
     lns = lns1 + lns2
     labs = [l.get_label() for l in lns]
 
-    # legend = ax.legend(lns, labs, loc='upper left', numpoints=1, facecolor=BG, edgecolor=FG)
-    legend = ax.legend(lns, labs, loc='lower right', numpoints=1, facecolor=BG, edgecolor=FG)
+    legend = ax.legend(lns, labs, loc='upper left', numpoints=1, facecolor=BG, edgecolor=FG)
+    # legend = ax.legend(lns, labs, loc='lower right', numpoints=1, facecolor=BG, edgecolor=FG)
     for text in legend.get_texts():
         text.set_color(FG)
 
