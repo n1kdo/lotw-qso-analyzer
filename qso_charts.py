@@ -269,6 +269,115 @@ def plot_dxcc_qsos(bin_data, title, filename=None, start_date=None, end_date=Non
     return
 
 
+def plot_vucc_qsos(bin_data, title, filename=None, start_date=None, end_date=None):
+    """
+    make the chart
+    """
+    logging.debug('plot_dxcc_qsos(...,%s, %s)' % (title, filename))
+    dates = []
+    total_vucc_data = []
+    total_ffma_data = []
+
+    for bin_dict in bin_data.data:
+        qso_date = bin_dict['datetime']
+        dates.append(qso_date)
+        total_vucc_data.append(bin_dict['total_vucc'])
+        total_ffma_data.append(bin_dict['total_ffma'])
+
+    number_vucc = bin_data.data[-1]['total_vucc']
+    number_ffma = bin_data.data[-1]['total_ffma']
+
+    fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True)
+
+    dts = datetime.datetime.now().strftime('%Y-%m-%d')
+    fig.text(1.0, 0.0, dts, fontsize=12, color='black', ha='right', va='bottom', transform=fig.transFigure)
+
+    ax = fig.add_subplot(111, facecolor=BG)
+
+    axb = ax.twinx()
+    ax.set_title(title, color=FG, size='xx-large', weight='bold')
+
+    dates = matplotlib.dates.date2num(dates)
+    if start_date is None:
+        start_date = dates[0]
+    if end_date is None:
+        end_date = dates[-1]
+    ax.set_xlim(start_date, end_date)
+    limit = (int(number_vucc / 100) + 1) * 100
+    ax.set_ylim(0,  limit)
+    axb.set_ylim(0, 500)  # 488 FFMA grids
+
+    lns1 = ax.plot_date(dates, total_vucc_data,
+                        fmt='r-',
+                        mew=0, markersize=5, label='Current VUCCs ({:d})'.format(number_vucc))
+    lns2 = axb.plot_date(dates, total_ffma_data,
+                         fmt='g:',
+                         mew=0, markersize=5, label='Current FFMA ({:d})'.format(number_ffma))
+    ax.grid(True)
+
+    yticks = [0, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500]
+    ax.set_yticks(yticks)
+    if False:
+        minor_ticks = [340, total_vucc_data[-1]]
+        ax.set_yticks(minor_ticks, minor=True)  # current number of dxcc entities
+        ax.tick_params(axis='y', which='minor', direction='in', right=False, labelcolor='r', pad=-24)
+        ax.yaxis.set_minor_formatter(FormatStrFormatter('%d'))
+
+    ax.tick_params(axis='y', colors=FG, which='major', direction='out', right=False, labelcolor='r')
+    ax.tick_params(axis='x', colors=FG, which='both', direction='out', top=False)
+    ax.set_ylabel('VUCCs', color='r', size='x-large', weight='bold')
+    axb.set_ylabel('FFMA', color='g', size='x-large', weight='bold')
+    ffma_ticks = [50, 100, 150, 200, 250, 300, 350, 400, 450]
+    axb.tick_params(axis='y', colors=FG, which='major', direction='out', left=False, labelcolor='g')
+    axb.set_yticks(ffma_ticks)
+    if False:
+        current_challenge_label_distance = total_ffma_data[-1] % 500
+        #print(current_challenge_label_distance)
+        if current_challenge_label_distance > 20 and current_challenge_label_distance < 480:
+            axb.set_yticks([total_ffma_data[-1]], minor=True)
+            axb.yaxis.set_minor_formatter(FormatStrFormatter('%d'))
+    axb.tick_params(axis='y', colors=FG, which='minor', direction='out', left=False, labelcolor='g', pad=-72)
+
+    if bin_data.num_days <= 28:
+        ax.xaxis.set_major_locator(DayLocator())
+        ax.xaxis.set_minor_locator(HourLocator())
+        ax.xaxis.set_major_formatter(DateFormatter('%m-%d'))
+        ax.set_xlabel('Date', color=FG, size='x-large', weight='bold')
+    else:
+        ax.xaxis.set_major_locator(YearLocator())
+        ax.xaxis.set_minor_locator(MonthLocator())
+        ax.xaxis.set_major_formatter(DateFormatter('%y'))
+        ax.set_xlabel('Year', color=FG, size='x-large', weight='bold')
+
+    lns = lns1 + lns2
+    labs = [l.get_label() for l in lns]
+
+    legend = ax.legend(lns, labs, loc='upper left', numpoints=1, facecolor=BG, edgecolor=FG)
+    # legend = ax.legend(lns, labs, loc='lower right', numpoints=1, facecolor=BG, edgecolor=FG)
+    for text in legend.get_texts():
+        text.set_color(FG)
+
+    ax.spines['left'].set_color(FG)
+    ax.spines['right'].set_color(FG)
+    ax.spines['top'].set_color(FG)
+    ax.spines['bottom'].set_color(FG)
+
+    axb.spines['left'].set_color(FG)
+    axb.spines['right'].set_color(FG)
+    axb.spines['top'].set_color(FG)
+    axb.spines['bottom'].set_color(FG)
+
+    if filename is not None:
+        canvas = agg.FigureCanvasAgg(fig)
+        canvas.draw()
+        fig.savefig(filename, facecolor=BG)
+    else:
+        plt.show()
+    plt.close(fig)
+    logging.debug('plot_dxcc_qsos(...,%s, %s) done' % (title, filename))
+    return
+
+
 def plot_qsos_rate(bin_data, title, filename=None, start_date=None, end_date=None):
     """
     make the chart

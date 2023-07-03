@@ -794,6 +794,7 @@ def write_adif_file(header, qsos, adif_file_name, abridge_results=True):
                  'country',
                  'dxcc',
                  'gridsquare',
+                 'vucc_grids',
                  'mode',
                  'qso_date',
                  'qsl_rcvd',
