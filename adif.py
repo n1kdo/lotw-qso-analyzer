@@ -706,9 +706,9 @@ def read_adif_file(adif_file_name):
                 if bytes_to_copy == 0:
                     qso[element_name.lower()] = element_value
                     state = 0  # start new adif value.
-    except FileNotFoundError:
+    except FileNotFoundError as fnfe:
         logging.warning('could not read file {}'.format(adif_file_name))
-        pass
+        print(fnfe)
     logging.debug('read {} QSOs from {}'.format(len(qsos), adif_file_name))
     return header, sorted(qsos, key=lambda qso: qso_key(qso))
 
