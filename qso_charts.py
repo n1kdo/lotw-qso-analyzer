@@ -206,7 +206,7 @@ def plot_dxcc_qsos(bin_data, title, filename=None, start_date=None, end_date=Non
                          mew=0, markersize=5, label='Challenge ({:d})'.format(number_challenge))
     ax.grid(True)
 
-    yticks = [0, 50, 100, 150, 200, 250, 300, 311, 340]
+    yticks = [0, 50, 100, 150, 200, 250, 300, 331, 340]
     labels = ['0', '50', '100', '150', '200', '250', '300', 'Honor Roll', '340']
     ax.set_yticks(yticks, labels)
     #ax.tick_params(axis='y', grid_linewidth=0)
