@@ -206,8 +206,10 @@ def plot_dxcc_qsos(bin_data, title, filename=None, start_date=None, end_date=Non
                          mew=0, markersize=5, label='Challenge ({:d})'.format(number_challenge))
     ax.grid(True)
 
-    yticks = [0, 50, 100, 150, 200, 250, 300, 350]
-    ax.set_yticks(yticks)
+    yticks = [0, 50, 100, 150, 200, 250, 300, 311, 340]
+    labels = ['0', '50', '100', '150', '200', '250', '300', 'Honor Roll', '340']
+    ax.set_yticks(yticks, labels)
+    #ax.tick_params(axis='y', grid_linewidth=0)
     if False:
         minor_ticks = [340, total_dxcc_data[-1]]
         ax.set_yticks(minor_ticks, minor=True)  # current number of dxcc entities
@@ -309,33 +311,25 @@ def plot_vucc_qsos(bin_data, title, filename=None, start_date=None, end_date=Non
 
     lns1 = ax.plot_date(dates, total_vucc_data,
                         fmt='r-',
-                        mew=0, markersize=5, label='Current VUCCs ({:d})'.format(number_vucc))
+                        mew=0, markersize=5, label='Confirmed VUCC QSOs ({:d})'.format(number_vucc))
     lns2 = axb.plot_date(dates, total_ffma_data,
                          fmt='g:',
-                         mew=0, markersize=5, label='Current FFMA ({:d})'.format(number_ffma))
+                         mew=0, markersize=5, label='Confirmed FFMA QSOs({:d})'.format(number_ffma))
     ax.grid(True)
 
-    yticks = [0, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500]
+    step = 50 if limit < 1000 else 100
+    yticks = [i for i in range(0, limit+1, step)]
     ax.set_yticks(yticks)
-    if False:
-        minor_ticks = [340, total_vucc_data[-1]]
-        ax.set_yticks(minor_ticks, minor=True)  # current number of dxcc entities
-        ax.tick_params(axis='y', which='minor', direction='in', right=False, labelcolor='r', pad=-24)
-        ax.yaxis.set_minor_formatter(FormatStrFormatter('%d'))
+
 
     ax.tick_params(axis='y', colors=FG, which='major', direction='out', right=False, labelcolor='r')
     ax.tick_params(axis='x', colors=FG, which='both', direction='out', top=False)
-    ax.set_ylabel('VUCCs', color='r', size='x-large', weight='bold')
-    axb.set_ylabel('FFMA', color='g', size='x-large', weight='bold')
-    ffma_ticks = [50, 100, 150, 200, 250, 300, 350, 400, 450]
+    ax.set_ylabel('Confirmed VUCC QSOs', color='r', size='x-large', weight='bold')
+    axb.set_ylabel('Confirmed FFMA QSOs', color='g', size='x-large', weight='bold')
+    ffma_ticks = [0, 50, 100, 150, 200, 250, 300, 350, 400, 450, 488]
     axb.tick_params(axis='y', colors=FG, which='major', direction='out', left=False, labelcolor='g')
     axb.set_yticks(ffma_ticks)
-    if False:
-        current_challenge_label_distance = total_ffma_data[-1] % 500
-        #print(current_challenge_label_distance)
-        if current_challenge_label_distance > 20 and current_challenge_label_distance < 480:
-            axb.set_yticks([total_ffma_data[-1]], minor=True)
-            axb.yaxis.set_minor_formatter(FormatStrFormatter('%d'))
+
     axb.tick_params(axis='y', colors=FG, which='minor', direction='out', left=False, labelcolor='g', pad=-72)
 
     if bin_data.num_days <= 28:
@@ -374,7 +368,7 @@ def plot_vucc_qsos(bin_data, title, filename=None, start_date=None, end_date=Non
     else:
         plt.show()
     plt.close(fig)
-    logging.debug('plot_dxcc_qsos(...,%s, %s) done' % (title, filename))
+    logging.debug('plot_vucc_qsos(...,%s, %s) done' % (title, filename))
     return
 
 
