@@ -71,6 +71,14 @@ def main():
     login_callsign = ''
     password = None
     data_dir = 'data/'
+    if not os.path.isdir(data_dir):
+        print(f'cannot find data directory {data_dir}, creating...')
+        os.mkdir(data_dir)
+
+    if not os.path.isdir(adif_log_analyzer.charts_dir):
+        print(f'cannot find data directory {adif_log_analyzer.charts_dir}, creating...')
+        os.mkdir(adif_log_analyzer.charts_dir)
+
     while len(login_callsign) < 3:
         login_callsign = input('Please enter your lotw login callsign: ')
 
