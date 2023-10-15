@@ -43,7 +43,7 @@ import qso_charts
 __author__ = 'Jeffrey B. Otterson, N1KDO'
 __copyright__ = 'Copyright 2017 - 2023 Jeffrey B. Otterson'
 __license__ = 'Simplified BSD'
-__version__ = '0.10.0'
+__version__ = '0.11.0'
 
 FFMA_GRIDS = ['CM79', 'CM86', 'CM87', 'CM88', 'CM89', 'CM93', 'CM94', 'CM95', 'CM96', 'CM97', 'CM98', 'CM99',
               'CN70', 'CN71', 'CN72', 'CN73', 'CN74', 'CN75', 'CN76', 'CN77', 'CN78', 'CN80', 'CN81', 'CN82',
@@ -598,6 +598,18 @@ def main():
         # end_date   = datetime.datetime.strptime('20181231', '%Y%m%d').date()
         draw_charts(qso_list, callsign, start_date=start_date, end_date=end_date)
 
+        marathon_charts = True
+        if marathon_charts:
+            # now produce marathon output
+            marathon_qso_list = []
+            callsign = callsign + '_2023'
+            start_date = datetime.datetime.strptime('20230101', '%Y%m%d').date()
+            end_date = datetime.datetime.strptime('20240101', '%Y%m%d').date()
+            for qso in qso_list:
+                qso_date = datetime.datetime.strptime(qso['qso_date'], '%Y%m%d').date()
+                if start_date <= qso_date < end_date:
+                    marathon_qso_list.append(qso)
+            draw_charts(marathon_qso_list, callsign, start_date=start_date, end_date=end_date)
     logging.info('done.')
 
 

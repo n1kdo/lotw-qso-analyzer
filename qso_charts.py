@@ -382,7 +382,7 @@ def plot_qsos_rate(bin_data, title, filename=None, start_date=None, end_date=Non
     data = [[], [], [], []]
     maxy = 0
     for bin_dict in bin_data.data:
-        qdate = bin_dict['datetime']
+        qdate = bin_dict['datetime'].date()
         if (start_date is None or qdate >= start_date) and (end_date is None or qdate <= end_date):
             # compute stacked bar sizes
             new_dxcc = bin_dict['new_dxcc']
@@ -486,7 +486,7 @@ def plot_qsos_band_rate(bin_data, title, filename=None, start_date=None, end_dat
     dates = []
 
     for bin_dict in bin_data.data:
-        qdate = bin_dict['datetime']
+        qdate = bin_dict['datetime'].date()
         if (start_date is None or qdate >= start_date) and (end_date is None or qdate <= end_date):
             dates.append(qdate)
             sum = 0
@@ -577,7 +577,7 @@ def plot_qsos_mode_rate(bin_data, title, filename=None, start_date=None, end_dat
     dates = []
 
     for bin_dict in bin_data.data:
-        qdate = bin_dict['datetime']
+        qdate = bin_dict['datetime'].date()
         if (start_date is None or qdate >= start_date) and (end_date is None or qdate <= end_date):
             dates.append(qdate)
             sum = 0
