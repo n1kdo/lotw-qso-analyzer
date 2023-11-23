@@ -3,7 +3,7 @@ import logging
 import numpy as np
 import matplotlib
 from matplotlib.dates import DateFormatter, YearLocator, MonthLocator, DayLocator, HourLocator
-from matplotlib.ticker import FormatStrFormatter
+# from matplotlib.ticker import FormatStrFormatter
 
 import matplotlib.pyplot as plt
 import matplotlib.backends.backend_agg as agg
@@ -88,6 +88,10 @@ def plot_qsos_by_date(bin_data, title, filename=None, start_date=None, end_date=
     dates = []
     data = [[], [], [], []]
     biggest = 0
+    worked = 0
+    confirmed = 0
+    challenge = 0
+    dxcc = 0
     for bin_dict in bin_data.data:
         qdate = bin_dict['datetime']
         worked = bin_dict['total_worked']
@@ -209,12 +213,11 @@ def plot_dxcc_qsos(bin_data, title, filename=None, start_date=None, end_date=Non
     yticks = [0, 50, 100, 150, 200, 250, 300, 331, 340]
     labels = ['0', '50', '100', '150', '200', '250', '300', 'Honor Roll', '340']
     ax.set_yticks(yticks, labels)
-    #ax.tick_params(axis='y', grid_linewidth=0)
-    if False:
-        minor_ticks = [340, total_dxcc_data[-1]]
-        ax.set_yticks(minor_ticks, minor=True)  # current number of dxcc entities
-        ax.tick_params(axis='y', which='minor', direction='in', right=False, labelcolor='r', pad=-24)
-        ax.yaxis.set_minor_formatter(FormatStrFormatter('%d'))
+    # ax.tick_params(axis='y', grid_linewidth=0)
+    # minor_ticks = [340, total_dxcc_data[-1]]
+    # ax.set_yticks(minor_ticks, minor=True)  # current number of dxcc entities
+    # ax.tick_params(axis='y', which='minor', direction='in', right=False, labelcolor='r', pad=-24)
+    # ax.yaxis.set_minor_formatter(FormatStrFormatter('%d'))
 
     ax.tick_params(axis='y', colors=FG, which='major', direction='out', right=False, labelcolor='r')
     ax.tick_params(axis='x', colors=FG, which='both', direction='out', top=False)
@@ -223,12 +226,11 @@ def plot_dxcc_qsos(bin_data, title, filename=None, start_date=None, end_date=Non
     challenge_ticks = [500, 1000, 1500, 2000, 2500, 3000, 3500]
     axb.tick_params(axis='y', colors=FG, which='major', direction='out', left=False, labelcolor='g')
     axb.set_yticks(challenge_ticks)
-    if False:
-        current_challenge_label_distance = total_challenge_data[-1] % 500
-        #print(current_challenge_label_distance)
-        if current_challenge_label_distance > 20 and current_challenge_label_distance < 480:
-            axb.set_yticks([total_challenge_data[-1]], minor=True)
-            axb.yaxis.set_minor_formatter(FormatStrFormatter('%d'))
+    #    current_challenge_label_distance = total_challenge_data[-1] % 500
+    #    # print(current_challenge_label_distance)
+    #    if 20 < current_challenge_label_distance < 480:
+    #        axb.set_yticks([total_challenge_data[-1]], minor=True)
+    #        axb.yaxis.set_minor_formatter(FormatStrFormatter('%d'))
     axb.tick_params(axis='y', colors=FG, which='minor', direction='out', left=False, labelcolor='g', pad=-72)
 
     if bin_data.num_days <= 28:
@@ -320,7 +322,6 @@ def plot_vucc_qsos(bin_data, title, filename=None, start_date=None, end_date=Non
     step = 50 if limit < 1000 else 100
     yticks = [i for i in range(0, limit+1, step)]
     ax.set_yticks(yticks)
-
 
     ax.tick_params(axis='y', colors=FG, which='major', direction='out', right=False, labelcolor='r')
     ax.tick_params(axis='x', colors=FG, which='both', direction='out', top=False)
@@ -489,10 +490,8 @@ def plot_qsos_band_rate(bin_data, title, filename=None, start_date=None, end_dat
         qdate = bin_dict['datetime'].date()
         if (start_date is None or qdate >= start_date) and (end_date is None or qdate <= end_date):
             dates.append(qdate)
-            sum = 0
             for i in range(0, len(challenge_bands)):
                 band_count = bin_dict[challenge_bands[i]]
-                sum += band_count
                 data[i].append(band_count)
 
     maxy = 0
@@ -771,6 +770,11 @@ def plot_map(qsos, title, filename=None, start_date=None, end_date=None, confirm
     grids = {}
     most = 0
     for qso in qsos:
+        if start_date is not None:
+            qso_date_string = qso.get('qso_date')
+            qso_date = datetime.datetime.strptime(qso_date_string, '%Y%m%d').date()
+            if qso_date < start_date or qso_date >= end_date:
+                continue
         qsl_rcvd = (qso.get('qsl_rcvd') or 'N').lower()
         if not confirmed_only or qsl_rcvd != 'n':
             grid = qso.get('gridsquare')
@@ -790,7 +794,7 @@ def plot_map(qsos, title, filename=None, start_date=None, end_date=None, confirm
     fig.text(1.0, 0.0, dts, fontsize=12, color='black', ha='right', va='bottom', transform=fig.transFigure)
 
     projection = ccrs.PlateCarree(central_longitude=-110)
-    ax = fig.add_axes([0, 0, 1, 1], projection=projection)
+    ax = fig.add_axes((0, 0, 1, 1), projection=projection)
 
     # ax.stock_img()
     ax.add_feature(cfeature.LAND, color='white')

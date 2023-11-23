@@ -142,7 +142,6 @@ def main():
             else:
                 password = get_password(password)
                 logging.info(f'fetching new QSOs since {last_qso_date}')
-                new_lotw_qsos_header = None
                 try:
                     new_lotw_qsos_header, new_lotw_qsos = adif.get_lotw_adif(login_callsign,
                                                                              password,
@@ -152,7 +151,7 @@ def main():
                     new_last_qso_date = lotw_header.get('app_lotw_lastqsorx')
                     logging.info(
                         'New last QSO Received {}, {} QSO records'.format(new_last_qso_date, len(new_lotw_qsos)))
-                    lotw_header, lotw_qsos = adif.merge(lotw_header, lotw_qsos, new_lotw_qsos_header, new_lotw_qsos)
+                    lotw_header, lotw_qsos = adif.merge(lotw_header, lotw_qsos, new_lotw_qsos)
                     if new_lotw_qsos_header.get('app_lotw_lastqsorx') is not None:
                         lotw_header['app_lotw_lastqsorx'] = new_lotw_qsos_header.get('app_lotw_lastqsorx')
 
@@ -166,7 +165,7 @@ def main():
                                                                          qso_qslsince=last_qsl_date,
                                                                          qso_query='1'
                                                                          )
-                    lotw_header, lotw_qsos = adif.merge(lotw_header, lotw_qsos, new_lotw_qsls_header, new_lotw_qsls)
+                    lotw_header, lotw_qsos = adif.merge(lotw_header, lotw_qsos, new_lotw_qsls)
                     if new_lotw_qsls_header.get('app_lotw_lastqsl') is not None:
                         lotw_header['app_lotw_lastqsl'] = new_lotw_qsls_header.get('app_lotw_lastqsl')
                 except Exception as ex:

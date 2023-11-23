@@ -43,7 +43,7 @@ import qso_charts
 __author__ = 'Jeffrey B. Otterson, N1KDO'
 __copyright__ = 'Copyright 2017 - 2023 Jeffrey B. Otterson'
 __license__ = 'Simplified BSD'
-__version__ = '0.11.0'
+__version__ = '0.11.2'
 
 FFMA_GRIDS = ['CM79', 'CM86', 'CM87', 'CM88', 'CM89', 'CM93', 'CM94', 'CM95', 'CM96', 'CM97', 'CM98', 'CM99',
               'CN70', 'CN71', 'CN72', 'CN73', 'CN74', 'CN75', 'CN76', 'CN77', 'CN78', 'CN80', 'CN81', 'CN82',
@@ -105,7 +105,6 @@ def convert_qso_date(d):
 def input1(prompt):
     print(prompt)
     s = input()
-    # s = sys.stdin.readline()
     return s
 
 
@@ -135,7 +134,7 @@ def crunch_data(qso_list):
             qso_date = qso.get('qso_date')
             qso_time = qso.get('time_on') or ''
             if len(qso_time) != 6:
-                qso_time = '120000'  # if no date, make mid-day
+                qso_time = '120000'  # if no date, make midday
             qso_iso_date = qso_date[0:4] + '-' + qso_date[4:6] + '-' + qso_date[6:8]
             qso_iso_date += 'T' + qso_time[0:2] + ':' + qso_time[2:4] + ':' + qso_time[4:6] + '+00:00'
             dt = datetime.datetime.fromisoformat(qso_iso_date)
@@ -178,7 +177,6 @@ def crunch_data(qso_list):
     n_confirmed = 0
     n_verified = 0
     n_challenge = 0
-    check_cards = []
 
     date_records = {}  # key is qso date.  value is dict, first record is summary data.
     # initialize data
@@ -203,18 +201,9 @@ def crunch_data(qso_list):
             continue
 
         if qso_date is not None:
-            if False:  # check sanity of qsl date
-                processed_date = qso.get('app_lotw_dxcc_processed_dtg')
-                if processed_date is not None:
-                    processed_date = processed_date[0:4] + processed_date[5:7] + processed_date[8:10]
-                    d = int(processed_date) - int(qso_date)
-                    if d / 10000 > 10:
-                        print('{}:{}:{}'.format(qso_date, processed_date, d))
-
             confirmed = 0
             verified = 0
             new_dxcc = 0
-            new_deleted = 0
             challenge = 0
             vucc = 0
             ffma = 0
@@ -229,17 +218,7 @@ def crunch_data(qso_list):
                 verified = 1
             qsl_rcvd = (qso.get('qsl_rcvd') or 'N').lower()
             if qsl_rcvd == 'y':
-                if True:
-                    confirmed = 1
-                else:
-                    if qso.get('app_lotw_2xqsl') is not None or qso.get('app_lotw_credit_granted') is not None:
-                        confirmed = 1
-                    elif qso.get('qslrdate') is not None:
-                        confirmed = 1
-                    elif confirmed == 0:
-                        check_cards.append(qso)
-                        print(qso)
-
+                confirmed = 1
             elif qsl_rcvd == 'v':
                 confirmed = 1
                 verified = 1
@@ -259,9 +238,7 @@ def crunch_data(qso_list):
                     if qso_dxcc not in dxcc_confirmed:
                         dxcc_country = adif.dxcc_countries.get(qso_dxcc) or ('error', True)
                         deleted = dxcc_country[1]
-                        if deleted:
-                            new_deleted = 1
-                        else:
+                        if not deleted:
                             new_dxcc = 1
                         dxcc_confirmed[qso_dxcc] = {
                             'COUNTRY': dxcc_name,
@@ -331,7 +308,7 @@ def crunch_data(qso_list):
                     date_records[qdate] = counts
 
                 if counts['qdate'] != qdate:
-                    logging.error('ow ow ow!')  # this is bad bad
+                    logging.error('ow ow ow!')  # this is bad bad bad
                 counts['worked'] += 1
                 counts['confirmed'] += confirmed
                 counts['new_dxcc'] += new_dxcc
@@ -424,9 +401,6 @@ def crunch_data(qso_list):
         total_confirmed += counts['confirmed']
         total_new_dxcc += counts['new_dxcc']
         total_new_challenge += counts['challenge']
-        #        for band in BANDS:
-        #            band_totals[band] += counts[band]
-        #            counts['total_' + band] = band_totals[band]
         counts['total_worked'] = total_worked
         counts['total_confirmed'] = total_confirmed
         counts['total_new_dxcc'] = total_new_dxcc
@@ -491,11 +465,9 @@ def crunch_data(qso_list):
     # dump the dxcc_counts data
     dxcc_records = dxcc_confirmed.values()
     dxcc_records = sorted(dxcc_records, key=lambda dxcc: int(dxcc['DXCC']))
-    print(
-        'DXCC Name                                 MIXED    CW PHONE  DATA 160M  80M  40M  30M  20M  17M  15M  12M  10M   6M')
+    print('DXCC Name                                 MIXED    CW PHONE  DATA 160M  80M  40M  30M  20M  17M  15M  12M  10M   6M')
     for rec in dxcc_records:
-        print(
-            ' {:3d} {:36s}  {:4d}  {:4d}  {:4d}  {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d}'.format(
+        print(' {:3d} {:36s}  {:4d}  {:4d}  {:4d}  {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d}'.format(
                 int(rec['DXCC']), rec['COUNTRY'],
                 rec['MIXED'], rec['CW'], rec['PHONE'], rec['DATA'],
                 rec['160M'], rec['80M'], rec['40M'], rec['30M'],
