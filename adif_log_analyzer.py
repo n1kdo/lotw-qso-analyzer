@@ -43,7 +43,7 @@ import qso_charts
 __author__ = 'Jeffrey B. Otterson, N1KDO'
 __copyright__ = 'Copyright 2017 - 2023 Jeffrey B. Otterson'
 __license__ = 'Simplified BSD'
-__version__ = '0.11.2'
+__version__ = '0.11.99'
 
 FFMA_GRIDS = ['CM79', 'CM86', 'CM87', 'CM88', 'CM89', 'CM93', 'CM94', 'CM95', 'CM96', 'CM97', 'CM98', 'CM99',
               'CN70', 'CN71', 'CN72', 'CN73', 'CN74', 'CN75', 'CN76', 'CN77', 'CN78', 'CN80', 'CN81', 'CN82',
@@ -464,7 +464,7 @@ def crunch_data(qso_list):
 
     # dump the dxcc_counts data
     dxcc_records = dxcc_confirmed.values()
-    dxcc_records = sorted(dxcc_records, key=lambda dxcc: int(dxcc['DXCC']))
+    dxcc_records = sorted(dxcc_records, key=lambda dxcc: dxcc['COUNTRY'])
     print('DXCC Name                                 MIXED    CW PHONE  DATA 160M  80M  40M  30M  20M  17M  15M  12M  10M   6M')
     for rec in dxcc_records:
         print(' {:3d} {:36s}  {:4d}  {:4d}  {:4d}  {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d} {:4d}'.format(
@@ -563,12 +563,14 @@ def main():
     logging.info('read {} qsls from {}'.format(len(qso_list), filename))
 
     if qso_list is not None:
-        start_date = None
-        end_date = None
-        # start_date = datetime.datetime.strptime('20070101', '%Y%m%d').date()
-        # start_date = datetime.datetime.strptime('20180101', '%Y%m%d').date()
-        # end_date   = datetime.datetime.strptime('20181231', '%Y%m%d').date()
-        draw_charts(qso_list, callsign, start_date=start_date, end_date=end_date)
+        all_time_charts = True
+        if all_time_charts:
+            start_date = None
+            end_date = None
+            # start_date = datetime.datetime.strptime('20070101', '%Y%m%d').date()
+            # start_date = datetime.datetime.strptime('20180101', '%Y%m%d').date()
+            # end_date   = datetime.datetime.strptime('20181231', '%Y%m%d').date()
+            draw_charts(qso_list, callsign, start_date=start_date, end_date=end_date)
 
         marathon_charts = True
         if marathon_charts:

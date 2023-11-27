@@ -3,7 +3,6 @@ import logging
 import numpy as np
 import matplotlib
 from matplotlib.dates import DateFormatter, YearLocator, MonthLocator, DayLocator, HourLocator
-# from matplotlib.ticker import FormatStrFormatter
 
 import matplotlib.pyplot as plt
 import matplotlib.backends.backend_agg as agg
@@ -18,6 +17,88 @@ WIDTH_INCHES = 16
 HEIGHT_INCHES = 9
 FG = 'k'
 BG = 'w'
+
+
+class QsoChart:
+
+    def __init__(self):
+        self.ax = None
+        self.bin_data = None
+        self.fig = None
+        self.ax = None
+        self.WIDTH_INCHES = 16
+        self.HEIGHT_INCHES = 9
+        self.FG = 'k'
+        self.BG = 'w'
+
+    def setup_figure(self, tight_layout=False):
+        if tight_layout:
+            self.fig = plt.Figure(figsize=(self.WIDTH_INCHES, self.HEIGHT_INCHES), dpi=100, tight_layout=True)
+        else:
+            self.fig = plt.Figure(figsize=(self.WIDTH_INCHES, self.HEIGHT_INCHES), dpi=100)
+        dts = datetime.datetime.now().strftime('%Y-%m-%d')
+        self.fig.text(1.0, 0.0, dts, fontsize=12, color='black',
+                      ha='right', va='bottom', transform=self.fig.transFigure)
+        return
+
+    def setup_chart(self, bin_data, title='untitled', start_date=None, end_date=None, max_y=0):
+        self.bin_data = bin_data
+
+        if start_date is None:
+            bins_start_date = self.bin_data.data[0].get('datetime')
+            if bins_start_date is not None:
+                start_date = bins_start_date.date()
+        if end_date is None:
+            bins_end_date = self.bin_data.data[-1].get('datetime')
+            if bins_end_date is not None:
+                end_date = bins_end_date.date() + datetime.timedelta(days=1)  # get one more day
+
+        self.setup_figure(True)
+        self.ax = self.fig.add_subplot(111, facecolor=self.BG)
+        self.ax.set_title(title, color=self.FG, size='xx-large', weight='bold')
+
+        self.ax.set_xlim(start_date, end_date)
+        if max_y != 0:
+            self.ax.set_ylim(0, max_y)
+        self.ax.grid(True)
+
+        self.ax.tick_params(axis='y', colors=FG, which='both', direction='out')
+        self.ax.tick_params(axis='x', colors=FG, which='both', direction='out', top=False)
+        self.ax.set_ylabel('QSOs', color=FG, size='x-large', weight='bold')
+
+        self.ax.spines['left'].set_color(FG)
+        self.ax.spines['right'].set_color(FG)
+        self.ax.spines['top'].set_color(FG)
+        self.ax.spines['bottom'].set_color(FG)
+
+        if self.bin_data.num_days <= 31:  # month or less
+            self.ax.xaxis.set_major_locator(DayLocator())
+            self.ax.xaxis.set_minor_locator(HourLocator())
+            self.ax.xaxis.set_major_formatter(DateFormatter('%m-%d'))
+        elif bin_data.num_bins <= 366:  # a year or less
+            self.ax.xaxis.set_major_locator(MonthLocator())
+            self.ax.xaxis.set_major_formatter(DateFormatter('%b %y'))
+        else:
+            self.ax.xaxis.set_major_locator(YearLocator())
+            self.ax.xaxis.set_minor_locator(MonthLocator())
+            self.ax.xaxis.set_major_formatter(DateFormatter('%Y'))
+        self.ax.set_xlabel('Date', color=FG, size='x-large', weight='bold')
+
+
+    def get_figure(self):
+        return self.fig
+
+    def get_axis(self):
+        return self.ax
+
+    def save_chart(self, filename):
+        if filename is not None:
+            canvas = agg.FigureCanvasAgg(self.fig)
+            canvas.draw()
+            self.fig.savefig(filename, facecolor=BG)
+        else:
+            plt.show()
+        plt.close(self.fig)
 
 
 class BinnedQSOData:
@@ -64,14 +145,8 @@ class BinnedQSOData:
         bin_num = ts // self.bin_size
         return bin_num
 
-
-def auto_scale(val):
-    factor = 1
-    t = val
-    while t > 10:
-        factor = factor * 10
-        t = int(t/10)
-    return (t+1) * factor
+    def get_bin_size(self):
+        return datetime.timedelta(seconds=self.bin_size)
 
 
 def no_zero(n):
@@ -85,7 +160,7 @@ def plot_qsos_by_date(bin_data, title, filename=None, start_date=None, end_date=
     make the chart
     """
     logging.debug('plot_qsos_by_date(...,%s, %s)' % (title, filename))
-    dates = []
+    qso_dates = []
     data = [[], [], [], []]
     biggest = 0
     worked = 0
@@ -98,7 +173,7 @@ def plot_qsos_by_date(bin_data, title, filename=None, start_date=None, end_date=
         confirmed = bin_dict['total_confirmed']
         challenge = bin_dict['total_challenge']
         dxcc = bin_dict['total_dxcc']
-        dates.append(qdate)
+        qso_dates.append(qdate)
         data[0].append(dxcc)
         data[1].append(challenge - dxcc)
         data[2].append(confirmed - challenge)
@@ -106,62 +181,25 @@ def plot_qsos_by_date(bin_data, title, filename=None, start_date=None, end_date=
         if worked > biggest:
             biggest = worked
 
-    fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True)
-    dts = datetime.datetime.now().strftime('%Y-%m-%d')
-    fig.text(1.0, 0.0, dts, fontsize=12, color='black', ha='right', va='bottom', transform=fig.transFigure)
-
-    ax = fig.add_subplot(111, facecolor=BG)
-
-    ax.set_title(title, color=FG, size='xx-large', weight='bold')
-
-    dates = matplotlib.dates.date2num(dates)
-    colors = ['#ffff00', '#ff9933', '#cc6600', '#660000']
-    labels = [f'{dxcc} dxcc', f'{challenge} challenge', f'{confirmed} confirmed', f'{worked} logged']
-    if start_date is None:
-        start_date = dates[0]
-    if end_date is None:
-        end_date = dates[-1]
-    ax.set_xlim(start_date, end_date)
-
     scale_factor = 1000
     upper = (biggest // scale_factor + 1) * scale_factor
+    chart = QsoChart()
+    chart.setup_chart(bin_data, title, start_date, end_date, upper)
+    ax = chart.get_axis()
 
-    ax.set_ylim(bottom=0, top=upper)  # auto_scale(biggest))
+    plot_dates = matplotlib.dates.date2num(qso_dates)
+    colors = ['#ffff00', '#ff9933', '#cc6600', '#660000']
+    labels = [f'{dxcc} dxcc', f'{challenge} challenge', f'{confirmed} confirmed', f'{worked} logged']
 
-    ax.stackplot(dates, data[0], data[1], data[2], data[3], labels=labels, colors=colors, linewidth=0.2)
-    ax.grid(True)
+    ax.stackplot(plot_dates, data[0], data[1], data[2], data[3], labels=labels, colors=colors, linewidth=0.2)
 
-    ax.spines['left'].set_color(FG)
-    ax.spines['right'].set_color(FG)
-    ax.spines['bottom'].set_color(FG)
-    ax.spines['top'].set_color(FG)
-    ax.tick_params(axis='y', colors=FG, which='both', direction='out', left=True, right=True)
-    ax.tick_params(axis='x', colors=FG, which='both', direction='out', top=False)
     ax.set_ylabel('QSOs', color=FG, size='x-large', weight='bold')
-
-    if bin_data.num_days <= 28:
-        ax.xaxis.set_major_locator(DayLocator())
-        ax.xaxis.set_minor_locator(HourLocator())
-        ax.xaxis.set_major_formatter(DateFormatter('%m-%d'))
-        ax.set_xlabel('Date', color=FG, size='x-large', weight='bold')
-    else:
-        ax.xaxis.set_major_locator(YearLocator())
-        ax.xaxis.set_minor_locator(MonthLocator())
-        ax.xaxis.set_major_formatter(DateFormatter('%y'))
-        ax.set_xlabel('Year', color=FG, size='x-large', weight='bold')
 
     legend = ax.legend(loc='upper left', facecolor=BG, edgecolor=FG)
     for text in legend.get_texts():
         text.set_color(FG)
 
-    if filename is not None:
-        canvas = agg.FigureCanvasAgg(fig)
-        canvas.draw()
-        fig.savefig(filename, facecolor=BG)
-    else:
-        plt.show()
-    plt.close(fig)
-    logging.debug('plot_qsos_by_date(...,%s, %s) done' % (title, filename))
+    chart.save_chart(filename)
     return
 
 
@@ -183,93 +221,43 @@ def plot_dxcc_qsos(bin_data, title, filename=None, start_date=None, end_date=Non
     number_dxcc = bin_data.data[-1]['total_dxcc']
     number_challenge = bin_data.data[-1]['total_challenge']
 
-    fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True)
+    plot_dates = matplotlib.dates.date2num(dates)
 
-    dts = datetime.datetime.now().strftime('%Y-%m-%d')
-    fig.text(1.0, 0.0, dts, fontsize=12, color='black', ha='right', va='bottom', transform=fig.transFigure)
-
-    ax = fig.add_subplot(111, facecolor=BG)
-
+    chart = QsoChart()
+    chart.setup_chart(bin_data, title, start_date, end_date, 0)
+    ax = chart.get_axis()
     axb = ax.twinx()
-    ax.set_title(title, color=FG, size='xx-large', weight='bold')
-
-    dates = matplotlib.dates.date2num(dates)
-    if start_date is None:
-        start_date = dates[0]
-    if end_date is None:
-        end_date = dates[-1]
-    ax.set_xlim(start_date, end_date)
     ax.set_ylim(0, 350)
     axb.set_ylim(0, 3500)
 
-    lns1 = ax.plot_date(dates, total_dxcc_data,
+    lns1 = ax.plot_date(plot_dates, total_dxcc_data,
                         fmt='r-',
                         mew=0, markersize=5, label='Current DXCCs ({:d})'.format(number_dxcc))
-    lns2 = axb.plot_date(dates, total_challenge_data,
+    lns2 = axb.plot_date(plot_dates, total_challenge_data,
                          fmt='g:',
                          mew=0, markersize=5, label='Challenge ({:d})'.format(number_challenge))
-    ax.grid(True)
 
-    yticks = [0, 50, 100, 150, 200, 250, 300, 331, 340]
-    labels = ['0', '50', '100', '150', '200', '250', '300', 'Honor Roll', '340']
+    ax.set_ylabel('DXCCs', color='r', size='x-large', weight='bold')
+    yticks = [0, 50, 100, 150, 200, 250, 300, 331, 340, 350]
+    labels = ['0', '50', '100', '150', '200', '250', '300', 'Honor Roll', '340', '350']
     ax.set_yticks(yticks, labels)
-    # ax.tick_params(axis='y', grid_linewidth=0)
-    # minor_ticks = [340, total_dxcc_data[-1]]
-    # ax.set_yticks(minor_ticks, minor=True)  # current number of dxcc entities
-    # ax.tick_params(axis='y', which='minor', direction='in', right=False, labelcolor='r', pad=-24)
-    # ax.yaxis.set_minor_formatter(FormatStrFormatter('%d'))
-
     ax.tick_params(axis='y', colors=FG, which='major', direction='out', right=False, labelcolor='r')
     ax.tick_params(axis='x', colors=FG, which='both', direction='out', top=False)
-    ax.set_ylabel('DXCCs', color='r', size='x-large', weight='bold')
+
     axb.set_ylabel('Challenge', color='g', size='x-large', weight='bold')
     challenge_ticks = [500, 1000, 1500, 2000, 2500, 3000, 3500]
-    axb.tick_params(axis='y', colors=FG, which='major', direction='out', left=False, labelcolor='g')
     axb.set_yticks(challenge_ticks)
-    #    current_challenge_label_distance = total_challenge_data[-1] % 500
-    #    # print(current_challenge_label_distance)
-    #    if 20 < current_challenge_label_distance < 480:
-    #        axb.set_yticks([total_challenge_data[-1]], minor=True)
-    #        axb.yaxis.set_minor_formatter(FormatStrFormatter('%d'))
+    axb.tick_params(axis='y', colors=FG, which='major', direction='out', left=False, labelcolor='g')
     axb.tick_params(axis='y', colors=FG, which='minor', direction='out', left=False, labelcolor='g', pad=-72)
-
-    if bin_data.num_days <= 28:
-        ax.xaxis.set_major_locator(DayLocator())
-        ax.xaxis.set_minor_locator(HourLocator())
-        ax.xaxis.set_major_formatter(DateFormatter('%m-%d'))
-        ax.set_xlabel('Date', color=FG, size='x-large', weight='bold')
-    else:
-        ax.xaxis.set_major_locator(YearLocator())
-        ax.xaxis.set_minor_locator(MonthLocator())
-        ax.xaxis.set_major_formatter(DateFormatter('%y'))
-        ax.set_xlabel('Year', color=FG, size='x-large', weight='bold')
 
     lns = lns1 + lns2
     labs = [l.get_label() for l in lns]
 
     legend = ax.legend(lns, labs, loc='upper left', numpoints=1, facecolor=BG, edgecolor=FG)
-    # legend = ax.legend(lns, labs, loc='lower right', numpoints=1, facecolor=BG, edgecolor=FG)
     for text in legend.get_texts():
         text.set_color(FG)
 
-    ax.spines['left'].set_color(FG)
-    ax.spines['right'].set_color(FG)
-    ax.spines['top'].set_color(FG)
-    ax.spines['bottom'].set_color(FG)
-
-    axb.spines['left'].set_color(FG)
-    axb.spines['right'].set_color(FG)
-    axb.spines['top'].set_color(FG)
-    axb.spines['bottom'].set_color(FG)
-
-    if filename is not None:
-        canvas = agg.FigureCanvasAgg(fig)
-        canvas.draw()
-        fig.savefig(filename, facecolor=BG)
-    else:
-        plt.show()
-    plt.close(fig)
-    logging.debug('plot_dxcc_qsos(...,%s, %s) done' % (title, filename))
+    chart.save_chart(filename)
     return
 
 
@@ -291,85 +279,46 @@ def plot_vucc_qsos(bin_data, title, filename=None, start_date=None, end_date=Non
     number_vucc = bin_data.data[-1]['total_vucc']
     number_ffma = bin_data.data[-1]['total_ffma']
 
-    fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True)
+    plot_dates = matplotlib.dates.date2num(dates)
 
-    dts = datetime.datetime.now().strftime('%Y-%m-%d')
-    fig.text(1.0, 0.0, dts, fontsize=12, color='black', ha='right', va='bottom', transform=fig.transFigure)
+    limit_factor = 500
+    limit = (int(number_vucc / limit_factor) + 1) * limit_factor
 
-    ax = fig.add_subplot(111, facecolor=BG)
-
+    chart = QsoChart()
+    chart.setup_chart(bin_data, title, start_date, end_date, limit)
+    ax = chart.get_axis()
+    ax.set_ylim(0, limit)
     axb = ax.twinx()
-    ax.set_title(title, color=FG, size='xx-large', weight='bold')
-
-    dates = matplotlib.dates.date2num(dates)
-    if start_date is None:
-        start_date = dates[0]
-    if end_date is None:
-        end_date = dates[-1]
-    ax.set_xlim(start_date, end_date)
-    limit = (int(number_vucc / 100) + 1) * 100
-    ax.set_ylim(0,  limit)
     axb.set_ylim(0, 500)  # 488 FFMA grids
 
-    lns1 = ax.plot_date(dates, total_vucc_data,
+    lns1 = ax.plot_date(plot_dates, total_vucc_data,
                         fmt='r-',
                         mew=0, markersize=5, label='Confirmed VUCC QSOs ({:d})'.format(number_vucc))
-    lns2 = axb.plot_date(dates, total_ffma_data,
+    lns2 = axb.plot_date(plot_dates, total_ffma_data,
                          fmt='g:',
                          mew=0, markersize=5, label='Confirmed FFMA QSOs({:d})'.format(number_ffma))
-    ax.grid(True)
 
+    ax.tick_params(axis='y', colors=FG, which='major', direction='out', right=False, labelcolor='r')
     step = 50 if limit < 1000 else 100
     yticks = [i for i in range(0, limit+1, step)]
     ax.set_yticks(yticks)
 
-    ax.tick_params(axis='y', colors=FG, which='major', direction='out', right=False, labelcolor='r')
-    ax.tick_params(axis='x', colors=FG, which='both', direction='out', top=False)
     ax.set_ylabel('Confirmed VUCC QSOs', color='r', size='x-large', weight='bold')
     axb.set_ylabel('Confirmed FFMA QSOs', color='g', size='x-large', weight='bold')
     ffma_ticks = [0, 50, 100, 150, 200, 250, 300, 350, 400, 450, 488]
+    ffma_tick_labels = ['0', '50', '100', '150', '200', '250', '300', '350', '400', '450', 'FFMA 488']
     axb.tick_params(axis='y', colors=FG, which='major', direction='out', left=False, labelcolor='g')
-    axb.set_yticks(ffma_ticks)
-
+    axb.set_yticks(ffma_ticks, ffma_tick_labels)
     axb.tick_params(axis='y', colors=FG, which='minor', direction='out', left=False, labelcolor='g', pad=-72)
-
-    if bin_data.num_days <= 28:
-        ax.xaxis.set_major_locator(DayLocator())
-        ax.xaxis.set_minor_locator(HourLocator())
-        ax.xaxis.set_major_formatter(DateFormatter('%m-%d'))
-        ax.set_xlabel('Date', color=FG, size='x-large', weight='bold')
-    else:
-        ax.xaxis.set_major_locator(YearLocator())
-        ax.xaxis.set_minor_locator(MonthLocator())
-        ax.xaxis.set_major_formatter(DateFormatter('%y'))
-        ax.set_xlabel('Year', color=FG, size='x-large', weight='bold')
 
     lns = lns1 + lns2
     labs = [l.get_label() for l in lns]
 
     legend = ax.legend(lns, labs, loc='upper left', numpoints=1, facecolor=BG, edgecolor=FG)
-    # legend = ax.legend(lns, labs, loc='lower right', numpoints=1, facecolor=BG, edgecolor=FG)
     for text in legend.get_texts():
         text.set_color(FG)
 
-    ax.spines['left'].set_color(FG)
-    ax.spines['right'].set_color(FG)
-    ax.spines['top'].set_color(FG)
-    ax.spines['bottom'].set_color(FG)
-
-    axb.spines['left'].set_color(FG)
-    axb.spines['right'].set_color(FG)
-    axb.spines['top'].set_color(FG)
-    axb.spines['bottom'].set_color(FG)
-
-    if filename is not None:
-        canvas = agg.FigureCanvasAgg(fig)
-        canvas.draw()
-        fig.savefig(filename, facecolor=BG)
-    else:
-        plt.show()
-    plt.close(fig)
-    logging.debug('plot_vucc_qsos(...,%s, %s) done' % (title, filename))
+    chart.save_chart(filename)
     return
 
 
@@ -378,9 +327,9 @@ def plot_qsos_rate(bin_data, title, filename=None, start_date=None, end_date=Non
     make the chart
     """
     logging.debug('plot_qsos_rate(...,%s, %s)' % (title, filename))
-
-    dates = []
+    plot_dates = []
     data = [[], [], [], []]
+    plot_widths = []
     maxy = 0
     for bin_dict in bin_data.data:
         qdate = bin_dict['datetime'].date()
@@ -390,86 +339,44 @@ def plot_qsos_rate(bin_data, title, filename=None, start_date=None, end_date=Non
             challenge = bin_dict['challenge'] - bin_dict['new_dxcc']
             confirmed = bin_dict['confirmed'] - bin_dict['challenge']
             worked = bin_dict['worked'] - bin_dict['confirmed']
-            dates.append(qdate)
+            plot_dates.append(np.datetime64(qdate))
             data[0].append(new_dxcc)
             data[1].append(challenge)
             data[2].append(confirmed)
             data[3].append(worked)
-
-    fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True)
-
-    dts = datetime.datetime.now().strftime('%Y-%m-%d')
-    fig.text(1.0, 0.0, dts, fontsize=12, color='black', ha='right', va='bottom', transform=fig.transFigure)
-
-    ax = fig.add_subplot(111, facecolor=BG)
-    ax.set_title(title, color=FG, size='xx-large', weight='bold')
+            plot_widths = np.timedelta64(bin_data.bin_size, 's')
 
     for i in range(0, len(data[0])):
         total = data[0][i] + data[1][i] + data[2][i] + data[3][i]
         if total > maxy:
             maxy = total
 
-    dates = matplotlib.dates.date2num(dates)
-    if start_date is None:
-        start_date = dates[0]
-    if end_date is None:
-        end_date = dates[-1]
-    ax.set_xlim(start_date, end_date)
-    ax.set_ylim(0, auto_scale(maxy))
+    chart = QsoChart()
+    chart.setup_chart(bin_data, title, start_date, end_date, maxy)
+    ax = chart.get_axis()
 
-    offsets = np.zeros((len(dates)), np.int32)
+    offsets = np.zeros((len(plot_dates)), np.int32)
     colors = ['#ff3333', '#cccc00', '#009900', '#000099']
     labels = ['Logged', 'Confirmed', 'Challenge', 'DXCC Entity']
 
-    width = bin_data.num_bins / 100
-    logging.debug(f'width {width}')
-    logging.debug(f'num_bins {bin_data.num_bins}')
-
     d = np.array(data[0])
-    ax.bar(dates, d, width, bottom=offsets, color=colors[0], label=labels[3])
+    ax.bar(plot_dates, d, plot_widths, bottom=offsets, color=colors[0], label=labels[3])
     offsets += d
     d = np.array(data[1])
-    ax.bar(dates, d, width, bottom=offsets, color=colors[1], label=labels[2])
+    ax.bar(plot_dates, d, plot_widths, bottom=offsets, color=colors[1], label=labels[2])
     offsets += d
     d = np.array(data[2])
-    ax.bar(dates, d, width, bottom=offsets, color=colors[2], label=labels[1])
+    ax.bar(plot_dates, d, plot_widths, bottom=offsets, color=colors[2], label=labels[1])
     offsets += d
     d = np.array(data[3])
-    ax.bar(dates, d, width, bottom=offsets, color=colors[3], label=labels[0])
-    ax.grid(True)
-
-    ax.tick_params(axis='y', colors=FG, which='both', direction='out')
-    ax.tick_params(axis='x', colors=FG, which='both', direction='out', top=False)
-    ax.set_ylabel('QSOs', color=FG, size='x-large', weight='bold')
-    ax.set_ylim(0, auto_scale(maxy))
-
-    ax.spines['left'].set_color(FG)
-    ax.spines['right'].set_color(FG)
-    ax.spines['top'].set_color(FG)
-    ax.spines['bottom'].set_color(FG)
-
-    if bin_data.num_days <= 28:
-        ax.xaxis.set_major_locator(DayLocator())
-        ax.xaxis.set_minor_locator(HourLocator())
-        ax.xaxis.set_major_formatter(DateFormatter('%m-%d'))
-        ax.set_xlabel('Date', color=FG, size='x-large', weight='bold')
-    else:
-        ax.xaxis.set_major_locator(YearLocator())
-        ax.xaxis.set_minor_locator(MonthLocator())
-        ax.xaxis.set_major_formatter(DateFormatter('%y'))
-        ax.set_xlabel('Year', color=FG, size='x-large', weight='bold')
+    ax.bar(plot_dates, d, plot_widths, bottom=offsets, color=colors[3], label=labels[0])
 
     legend = ax.legend(loc='upper left', numpoints=1, facecolor=BG, edgecolor=FG)
     for text in legend.get_texts():
         text.set_color(FG)
 
-    if filename is not None:
-        canvas = agg.FigureCanvasAgg(fig)
-        canvas.draw()
-        fig.savefig(filename, facecolor=BG)
-    else:
-        plt.show()
-    plt.close(fig)
+    chart.save_chart(filename)
+
     logging.debug('plot_qsos_rate(...,%s, %s) done' % (title, filename))
     return
 
@@ -484,12 +391,14 @@ def plot_qsos_band_rate(bin_data, title, filename=None, start_date=None, end_dat
     colors = ['violet', 'g', 'b', 'c', 'r', '#ffff00', '#ff6600', '#00ff00', '#663300', '#00ffff']
 
     data = [[], [], [], [], [], [], [], [], [], []]
-    dates = []
+    plot_dates = []
+    plot_widths = []
 
     for bin_dict in bin_data.data:
         qdate = bin_dict['datetime'].date()
         if (start_date is None or qdate >= start_date) and (end_date is None or qdate <= end_date):
-            dates.append(qdate)
+            plot_dates.append(np.datetime64(qdate))
+            plot_widths.append(np.timedelta64(bin_data.bin_size, 's'))
             for i in range(0, len(challenge_bands)):
                 band_count = bin_dict[challenge_bands[i]]
                 data[i].append(band_count)
@@ -502,65 +411,23 @@ def plot_qsos_band_rate(bin_data, title, filename=None, start_date=None, end_dat
         if total > maxy:
             maxy = total
 
-    fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True)
+    chart = QsoChart()
+    chart.setup_chart(bin_data, title, start_date, end_date, maxy)
+    ax = chart.get_axis()
 
-    dts = datetime.datetime.now().strftime('%Y-%m-%d')
-    fig.text(1.0, 0.0, dts, fontsize=12, color='black', ha='right', va='bottom', transform=fig.transFigure)
-
-    ax = fig.add_subplot(111, facecolor=BG)
-    ax.set_title(title, color=FG, size='xx-large', weight='bold')
-
-    dates = matplotlib.dates.date2num(dates)
-    if start_date is None:
-        start_date = dates[0]
-    if end_date is None:
-        end_date = dates[-1]
-    ax.set_xlim(start_date, end_date)
-    ax.set_ylim(0, auto_scale(maxy))
-
-    width = bin_data.num_bins / 100
-    logging.debug(f'num_bins={bin_data.num_bins}')
-    logging.debug(f'width={width}')
-
-    offset = np.zeros((len(dates)), dtype=np.int32)
+    offset = np.zeros((len(plot_dates)), dtype=np.int32)
     for i in range(0, len(challenge_bands)):
         ta = np.array(data[i])
-        ax.bar(dates, ta, width=width, bottom=offset, color=colors[i], label=challenge_bands[i])
+        ax.bar(plot_dates, ta, width=plot_widths, bottom=offset, color=colors[i], label=challenge_bands[i])
         # ax.bar(dates, ta, bottom=offset, color=colors[i], label=challenge_bands[i])
         offset += ta
-
-    ax.grid(True)
-
-    ax.tick_params(axis='y', colors=FG, which='both', direction='out')
-    ax.tick_params(axis='x', colors=FG, which='both', direction='out', top=False)
-    ax.set_ylabel('QSOs', color=FG, size='x-large', weight='bold')
-    ax.set_xlabel('Date', color=FG, size='x-large', weight='bold')
-
-    ax.spines['left'].set_color(FG)
-    ax.spines['right'].set_color(FG)
-    ax.spines['top'].set_color(FG)
-    ax.spines['bottom'].set_color(FG)
-
-    if bin_data.num_days <= 28:
-        ax.xaxis.set_major_locator(DayLocator())
-        ax.xaxis.set_minor_locator(HourLocator())
-        ax.xaxis.set_major_formatter(DateFormatter('%m-%d'))
-    else:
-        ax.xaxis.set_major_locator(YearLocator())
-        ax.xaxis.set_minor_locator(MonthLocator())
-        ax.xaxis.set_major_formatter(DateFormatter('%y'))
 
     legend = ax.legend(loc='upper left', numpoints=1, facecolor=BG, edgecolor=FG)
     for text in legend.get_texts():
         text.set_color(FG)
 
-    if filename is not None:
-        canvas = agg.FigureCanvasAgg(fig)
-        canvas.draw()
-        fig.savefig(filename, facecolor=BG)
-    else:
-        plt.show()
-    plt.close(fig)
+    chart.save_chart(filename)
+
     logging.debug('plot_qsos_band_rate(...,%s, %s) done' % (title, filename))
     return
 
@@ -573,19 +440,20 @@ def plot_qsos_mode_rate(bin_data, title, filename=None, start_date=None, end_dat
 
     colors = ['r', 'g', 'c', 'b']
     data = [[], [], [], []]
-    dates = []
+    plot_dates = []
+    plot_widths = []
 
     for bin_dict in bin_data.data:
         qdate = bin_dict['datetime'].date()
         if (start_date is None or qdate >= start_date) and (end_date is None or qdate <= end_date):
-            dates.append(qdate)
+            plot_dates.append(np.datetime64(qdate))
+            plot_widths.append(np.timedelta64(bin_data.bin_size, 's'))
             sum = 0
             for i in range(0, len(adif.MODES)):
                 mode_count = bin_dict[adif.MODES[i]]
                 sum += mode_count
                 data[i].append(mode_count)
 
-    # dates, data = make_bins(dates, data)
     maxy = 0
     for i in range(0, len(data[0])):
         total = 0
@@ -594,66 +462,21 @@ def plot_qsos_mode_rate(bin_data, title, filename=None, start_date=None, end_dat
         if total > maxy:
             maxy = total
 
-    fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True)
+    chart = QsoChart()
+    chart.setup_chart(bin_data, title, start_date, end_date, maxy)
+    ax = chart.get_axis()
 
-    dts = datetime.datetime.now().strftime('%Y-%m-%d')
-    fig.text(1.0, 0.0, dts, fontsize=12, color='black', ha='right', va='bottom', transform=fig.transFigure)
-
-    ax = fig.add_subplot(111, facecolor=BG)
-    ax.set_title(title, color=FG, size='xx-large', weight='bold')
-
-    dates = matplotlib.dates.date2num(dates)
-    if start_date is None:
-        start_date = dates[0]
-    if end_date is None:
-        end_date = dates[-1]
-    ax.set_xlim(start_date, end_date)
-    ax.set_ylim(0, auto_scale(maxy))
-
-    width = bin_data.num_bins / 100
-    logging.debug(f'num_bins={bin_data.num_bins}')
-    logging.debug(f'width={width}')
-
-    offset = np.zeros((len(dates)), dtype=np.int32)
+    offset = np.zeros((len(plot_dates)), dtype=np.int32)
     for i in range(0, len(adif.MODES)):
         ta = np.array(data[i])
-        ax.bar(dates, ta, width, bottom=offset, color=colors[i], label=adif.MODES[i])
+        ax.bar(plot_dates, ta, plot_widths, bottom=offset, color=colors[i], label=adif.MODES[i])
         offset += ta
 
-    ax.grid(True)
-
-    ax.tick_params(axis='y', colors=FG, which='both', direction='out')
-    ax.tick_params(axis='x', colors=FG, which='both', direction='out', top=False)
-    ax.set_ylabel('QSOs', color=FG, size='x-large', weight='bold')
-    ax.set_xlabel('Date', color=FG, size='x-large', weight='bold')
-
-    ax.spines['left'].set_color(FG)
-    ax.spines['right'].set_color(FG)
-    ax.spines['top'].set_color(FG)
-    ax.spines['bottom'].set_color(FG)
-
-    if bin_data.num_days <= 28:
-        ax.xaxis.set_major_locator(DayLocator())
-        ax.xaxis.set_minor_locator(HourLocator())
-        ax.xaxis.set_major_formatter(DateFormatter('%m-%d'))
-    else:
-        ax.xaxis.set_major_locator(YearLocator())
-        ax.xaxis.set_minor_locator(MonthLocator())
-        ax.xaxis.set_major_formatter(DateFormatter('%y'))
-
-    # ax.xaxis.set_minor_formatter(DateFormatter('%m'))
     legend = ax.legend(loc='upper left', numpoints=1, facecolor=BG, edgecolor=FG)
     for text in legend.get_texts():
         text.set_color(FG)
 
-    if filename is not None:
-        canvas = agg.FigureCanvasAgg(fig)
-        canvas.draw()
-        fig.savefig(filename, facecolor=BG)
-    else:
-        plt.show()
-    plt.close(fig)
-    logging.debug('plot_qsos_mode_rate(...,%s, %s) done' % (title, filename))
+    chart.save_chart(filename)
     return
 
 
@@ -680,72 +503,31 @@ def plot_challenge_bands_by_date(bin_data, title, filename=None, start_date=None
                 biggest = totals[i]
             data[i + 1].append(totals[i])
 
-    fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100, tight_layout=True)
+    scale_factor = 50
+    y_end = (int(biggest / scale_factor) + 1) * scale_factor
 
-    dts = datetime.datetime.now().strftime('%Y-%m-%d')
-    fig.text(1.0, 0.0, dts, fontsize=12, color='black', ha='right', va='bottom', transform=fig.transFigure)
+    plot_dates = matplotlib.dates.date2num(data[0])
 
-    ax = fig.add_subplot(111, facecolor=BG)
-
-    axb = ax.twinx()
-    ax.set_title(title, color=FG, size='xx-large', weight='bold')
-
-    dates = matplotlib.dates.date2num(data[0])
-    if start_date is None:
-        start_date = dates[0]
-    if end_date is None:
-        end_date = dates[-1]
-    ax.set_xlim(start_date, end_date)
-
-    y_end = (int(biggest / 50) + 1) * 50
+    chart = QsoChart()
+    chart.setup_chart(bin_data, title, start_date, end_date, 0)
+    ax = chart.get_axis()
     ax.set_ylim(0, y_end)
 
+    step = scale_factor  # 50 if y_end < 1000 else 100
+    yticks = [i for i in range(0, y_end+1, step)]
+    ax.set_yticks(yticks)
+
     for i in range(0, len(challenge_bands)):
-        ax.plot_date(dates, data[i + 1],
+        ax.plot_date(plot_dates, data[i + 1],
                      color=colors[i],
                      fmt=line_styles[i],
                      mew=0, markersize=5, label='{:s} ({:d})'.format(challenge_bands[i], totals[i]))
-    ax.grid(True)
-
-    ax.tick_params(axis='y', colors=FG, which='both', direction='out', right=False)
-    ax.tick_params(axis='x', colors=FG, which='both', direction='out', top=False)
-    ax.set_ylabel('DXCCs', color=FG, size='x-large', weight='bold')
-    ax.set_xlabel('Date', color=FG, size='x-large', weight='bold')
-
-    if bin_data.num_days <= 28:
-        ax.xaxis.set_major_locator(DayLocator())
-        ax.xaxis.set_minor_locator(HourLocator())
-        ax.xaxis.set_major_formatter(DateFormatter('%m-%d'))
-    else:
-        ax.xaxis.set_major_locator(YearLocator())
-        ax.xaxis.set_minor_locator(MonthLocator())
-        ax.xaxis.set_major_formatter(DateFormatter('%y'))
 
     legend = ax.legend(loc='upper left', numpoints=1, facecolor=BG, edgecolor=FG)
     for text in legend.get_texts():
         text.set_color(FG)
 
-    ax.spines['left'].set_color(FG)
-    ax.spines['right'].set_color(FG)
-    ax.spines['top'].set_color(FG)
-    ax.spines['bottom'].set_color(FG)
-
-    axb.spines['left'].set_color(FG)
-    axb.spines['right'].set_color(FG)
-    axb.spines['top'].set_color(FG)
-    axb.spines['bottom'].set_color(FG)
-
-    axb.set_ylim(ax.get_ylim())
-    axb.tick_params(axis='y', colors=FG, which='both', direction='out')
-
-    if filename is not None:
-        canvas = agg.FigureCanvasAgg(fig)
-        canvas.draw()
-        fig.savefig(filename, facecolor=BG)
-    else:
-        plt.show()
-    plt.close(fig)
-    logging.debug('plot_challenge_bands_by_date(...,%s, %s) done' % (title, filename))
+    chart.save_chart(filename)
     return
 
 
@@ -788,13 +570,13 @@ def plot_map(qsos, title, filename=None, start_date=None, end_date=None, confirm
                 if grids[grid] > most:
                     most = grids[grid]
 
-    fig = plt.Figure(figsize=(WIDTH_INCHES, HEIGHT_INCHES), dpi=100)
-
-    dts = datetime.datetime.now().strftime('%Y-%m-%d')
-    fig.text(1.0, 0.0, dts, fontsize=12, color='black', ha='right', va='bottom', transform=fig.transFigure)
+    chart = QsoChart()
+    chart.setup_figure()
+    fig = chart.get_figure()
 
     projection = ccrs.PlateCarree(central_longitude=-110)
     ax = fig.add_axes((0, 0, 1, 1), projection=projection)
+    ax.set_title(title, color=chart.FG, size='xx-large', weight='bold')
 
     # ax.stock_img()
     ax.add_feature(cfeature.LAND, color='white')
@@ -814,8 +596,6 @@ def plot_map(qsos, title, filename=None, start_date=None, end_date=None, confirm
         )
     ax.add_feature(map_lines)
 
-    ax.set_title(title, color=FG, size='xx-large', weight='bold')
-
     color_palette = ['#0b0089', '#4100a0', '#6500aa', '#8500aa', '#a4109c', '#c03486',
                      '#cf4875', '#e3615f', '#f28047', '#fb9b30', '#ffb804', '#fbdc00', '#f0fb00',
                      ]
@@ -832,12 +612,6 @@ def plot_map(qsos, title, filename=None, start_date=None, end_date=None, confirm
             clr = color_palette[index]
             ax.add_geometries([box], ccrs.PlateCarree(), alpha=0.5, facecolor=clr, edgecolor=clr, linewidth=0)
 
-    if filename is not None:
-        canvas = agg.FigureCanvasAgg(fig)
-        canvas.draw()
-        fig.savefig(filename, facecolor=BG)
-    else:
-        plt.show()
-    plt.close(fig)
+    chart.save_chart(filename)
     logging.debug('plot_map(...,%s, %s) done' % (title, filename))
     return
