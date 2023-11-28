@@ -306,7 +306,7 @@ dxcc_countries = {
     '280': ('Turkmenistan', False),
     '281': ('Spain', False),
     '282': ('Tuvalu', False),
-    '283': ('UK Sovereighn Base Areas on Cyprus', False),
+    '283': ('UK Sovereign Base Areas on Cyprus', False),
     '284': ('Sweden', False),
     '285': ('Virgin Is.', False),
     '286': ('Uganda', False),
