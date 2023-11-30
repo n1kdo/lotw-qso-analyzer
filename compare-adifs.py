@@ -32,7 +32,8 @@ def main():
     start_date = datetime.datetime.strptime('20230101', '%Y%m%d').date()
     end_date = datetime.datetime.strptime('20240101', '%Y%m%d').date()
     left_file = 'j:\\2023-dxk.adi'
-    right_file = 'j:\\N1KDO-clublog-2023-11-30.adi'
+    #right_file = 'j:\\N1KDO-clublog-2023-11-30.adi'
+    right_file = 'C:\\Users\\Jeff\\IdeaProjects\\lotw-qso-analyzer\\data\\n1kdo-lotw.adif'
 
     # read the two adif files
     header1, left_qsos = read_adif_file(left_file)
