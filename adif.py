@@ -637,7 +637,7 @@ def read_adif_file(adif_file_name):
     """
     adif file reader/parser.
     :param adif_file_name:  the name of the file to read.
-    :return:
+    :return: adif header as dict, array of QSO data as list of dicts
     """
     logging.debug('reading adif file {}'.format(adif_file_name))
     qsos = []
