@@ -43,7 +43,7 @@ import qso_charts
 __author__ = 'Jeffrey B. Otterson, N1KDO'
 __copyright__ = 'Copyright 2017 - 2023 Jeffrey B. Otterson'
 __license__ = 'Simplified BSD'
-__version__ = '0.11.99'
+__version__ = '0.12.00'
 
 FFMA_GRIDS = ['CM79', 'CM86', 'CM87', 'CM88', 'CM89', 'CM93', 'CM94', 'CM95', 'CM96', 'CM97', 'CM98', 'CM99',
               'CN70', 'CN71', 'CN72', 'CN73', 'CN74', 'CN75', 'CN76', 'CN77', 'CN78', 'CN80', 'CN81', 'CN82',
@@ -492,52 +492,62 @@ def draw_charts(qso_list, callsign, start_date=None, end_date=None):
     bin_data = crunch_data(qso_list)
 
     # now draw the charts
-    logging.info('drawing QSOs chart')
-    qso_charts.plot_qsos_by_date(bin_data,
-                                 callsign + ' QSOs',
-                                 file_callsign + '_qsos_by_date.png',
+    logging.info('drawing QSOs by Date chart')
+    qso_charts.QSOsByDateChart(bin_data,
+                               callsign + ' QSOs by Date',
+                               file_callsign + '_qsos_by_date.png',
+                               start_date=start_date,
+                               end_date=end_date)
+
+    logging.info('drawing DXCC and Challenge QSOs chart')
+    qso_charts.DXCCQSOsChart(bin_data,
+                             callsign + ' DXCC and Challenge Confirmed QSOs',
+                             file_callsign + '_dxcc_qsos.png',
+                             start_date=start_date,
+                             end_date=end_date)
+
+    logging.info('drawing VUCC and FFMA QSOs chart')
+    qso_charts.VuccFfmaQSOsChart(bin_data,
+                                 callsign + ' Confirmed VUCC and FFMA QSOs',
+                                 file_callsign + '_vucc_qsos.png',
                                  start_date=start_date,
                                  end_date=end_date)
-    logging.info('drawing DXCC and Challenge QSLs chart')
-    qso_charts.plot_dxcc_qsos(bin_data,
-                              callsign + ' DXCC and Challenge QSLs',
-                              file_callsign + '_dxcc_qsos.png',
-                              start_date=start_date,
-                              end_date=end_date)
-    logging.info('drawing VUCC and FFMA QSLs chart')
-    qso_charts.plot_vucc_qsos(bin_data,
-                              callsign + ' VUCC and FFMA QSLs',
-                              file_callsign + '_vucc_qsos.png',
-                              start_date=start_date,
-                              end_date=end_date)
+
+    logging.info('drawing confirmed challenge bands by date chart')
+    qso_charts.ChallengeBandsByDateChart(bin_data,
+                                         callsign + ' Confirmed Challenge Bands by Date',
+                                         file_callsign + '_challenge_bands_by_date.png',
+                                         start_date=start_date,
+                                         end_date=end_date)
+
     logging.info('drawing QSO Rate chart')
-    qso_charts.plot_qsos_rate(bin_data,
-                              callsign + ' QSO Rate',
-                              file_callsign + '_qso_rate.png',
-                              start_date=start_date,
-                              end_date=end_date)
+    qso_charts.QSOsRateChart(bin_data,
+                             callsign + ' QSO Rate',
+                             file_callsign + '_qso_rate.png',
+                             start_date=start_date,
+                             end_date=end_date)
+
     logging.info('drawing QSO Rate by Band chart')
-    qso_charts.plot_qsos_band_rate(bin_data,
+    qso_charts.QSOsByBandRateChart(bin_data,
                                    callsign + ' QSO Rate by Band',
                                    file_callsign + '_qsos_band_rate.png',
                                    start_date=start_date,
                                    end_date=end_date)
+
     logging.info('drawing QSO Rate by Mode chart')
-    qso_charts.plot_qsos_mode_rate(bin_data,
+    qso_charts.QSOsByModeRateChart(bin_data,
                                    callsign + ' QSO Rate by Mode',
                                    file_callsign + '_qsos_mode_rate.png',
                                    start_date=start_date,
                                    end_date=end_date)
-    logging.info('drawing Challenge Band Slots chart')
-    qso_charts.plot_challenge_bands_by_date(bin_data, callsign + ' Challenge Band Slots',
-                                            file_callsign + '_challenge_bands_by_date.png', start_date=start_date,
-                                            end_date=end_date)
+
     logging.info('drawing Grid Squares Confirmed map')
-    qso_charts.plot_map(qso_list,
-                        callsign + ' Grid Squares Confirmed',
-                        file_callsign + '_grids_map.png',
-                        start_date=start_date,
-                        end_date=end_date)
+    qso_charts.QSOsMap(qso_list,
+                       callsign + ' Grid Squares Confirmed',
+                       file_callsign + '_grids_map.png',
+                       start_date=start_date,
+                       end_date=end_date,
+                       confirmed_only=True)
 
 
 def main():
