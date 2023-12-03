@@ -46,6 +46,7 @@ class QsoChart:
 
     def save_chart(self):
         if self.filename is not None:
+            logging.info(f'writing image file {self.filename}')
             canvas = agg.FigureCanvasAgg(self.fig)
             canvas.draw()
             self.fig.savefig(self.filename, facecolor=BG)

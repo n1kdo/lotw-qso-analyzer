@@ -556,25 +556,6 @@ def get_qsl_cards(username, password, filename=None):
     return qsl_cards_header, qsl_cards
 
 
-def adif_field_naive(s):
-    if '<' in s:
-        match = re.search(r'^<(.*)>(.*)$', s)
-        if match is None:
-            return None, None
-        if match.group(2):
-            payload = match.group(2)
-            title = match.group(1)
-            match = re.search(r'^(.*?):.*$', title)
-            if match is not None:
-                fn = str(match.group(1)).lower()
-                return fn, payload
-            else:
-                logging.error(f'problem matching adif field {title}')
-        else:
-            return str(match.group(1)).lower(), None
-    return None, None
-
-
 def adif_field(s):
     state = 0
     element_name = ''
@@ -639,7 +620,7 @@ def read_adif_file(adif_file_name):
     :param adif_file_name:  the name of the file to read.
     :return: adif header as dict, array of QSO data as list of dicts
     """
-    logging.debug('reading adif file {}'.format(adif_file_name))
+    logging.info('reading adif file {}'.format(adif_file_name))
     qsos = []
     header = {}
     qso = {}
@@ -705,7 +686,7 @@ def read_adif_file(adif_file_name):
     except FileNotFoundError as fnfe:
         logging.warning('could not read file {}'.format(adif_file_name))
         logging.warning(fnfe)
-    logging.debug('read {} QSOs from {}'.format(len(qsos), adif_file_name))
+    logging.info('read {} QSOs from {}'.format(len(qsos), adif_file_name))
     return header, sorted(qsos, key=lambda qso: qso_key(qso))
 
 
@@ -781,7 +762,7 @@ def write_adif_field(key, item):
 
 
 def write_adif_file(header, qsos, adif_file_name, abridge_results=True):
-    logging.debug('write_adif_file %s' % adif_file_name)
+    logging.info('write_adif_file %s' % adif_file_name)
     save_keys = ['app_lotw_mode',
                  'app_lotw_modegroup',
                  'app_n1kdo_qso_combined',
@@ -844,7 +825,7 @@ def write_adif_file(header, qsos, adif_file_name, abridge_results=True):
                 else:
                     f.write(write_adif_field(key, value))
             f.write('<eor>\n\n')
-    logging.debug('wrote_adif_file %s' % adif_file_name)
+    logging.info('wrote_adif_file %s' % adif_file_name)
 
 
 def compare_lists(qso_list, cards_list):

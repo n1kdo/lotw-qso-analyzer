@@ -31,6 +31,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 """
 
+import argparse
 import datetime
 import logging
 import os
@@ -87,9 +88,6 @@ FFMA_GRIDS = ['CM79', 'CM86', 'CM87', 'CM88', 'CM89', 'CM93', 'CM94', 'CM95', 'C
               'FN32', 'FN33', 'FN34', 'FN35', 'FN41', 'FN42', 'FN43', 'FN44', 'FN45', 'FN46', 'FN51', 'FN53',
               'FN54', 'FN55', 'FN56', 'FN57', 'FN64', 'FN65', 'FN66', 'FN67']
 
-logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S',
-                    level=logging.INFO)
-logging.Formatter.converter = time.gmtime
 charts_dir = 'charts/'
 
 
@@ -492,56 +490,56 @@ def draw_charts(qso_list, callsign, start_date=None, end_date=None):
     bin_data = crunch_data(qso_list)
 
     # now draw the charts
-    logging.info('drawing QSOs by Date chart')
+    print('drawing QSOs by Date chart')
     qso_charts.QSOsByDateChart(bin_data,
                                callsign + ' QSOs by Date',
                                file_callsign + '_qsos_by_date.png',
                                start_date=start_date,
                                end_date=end_date)
 
-    logging.info('drawing DXCC and Challenge QSOs chart')
+    print('drawing DXCC and Challenge QSOs chart')
     qso_charts.DXCCQSOsChart(bin_data,
                              callsign + ' DXCC and Challenge Confirmed QSOs',
                              file_callsign + '_dxcc_qsos.png',
                              start_date=start_date,
                              end_date=end_date)
 
-    logging.info('drawing VUCC and FFMA QSOs chart')
+    print('drawing VUCC and FFMA QSOs chart')
     qso_charts.VuccFfmaQSOsChart(bin_data,
                                  callsign + ' Confirmed VUCC and FFMA QSOs',
                                  file_callsign + '_vucc_qsos.png',
                                  start_date=start_date,
                                  end_date=end_date)
 
-    logging.info('drawing confirmed challenge bands by date chart')
+    print('drawing confirmed challenge bands by date chart')
     qso_charts.ChallengeBandsByDateChart(bin_data,
                                          callsign + ' Confirmed Challenge Bands by Date',
                                          file_callsign + '_challenge_bands_by_date.png',
                                          start_date=start_date,
                                          end_date=end_date)
 
-    logging.info('drawing QSO Rate chart')
+    print('drawing QSO Rate chart')
     qso_charts.QSOsRateChart(bin_data,
                              callsign + ' QSO Rate',
                              file_callsign + '_qso_rate.png',
                              start_date=start_date,
                              end_date=end_date)
 
-    logging.info('drawing QSO Rate by Band chart')
+    print('drawing QSO Rate by Band chart')
     qso_charts.QSOsByBandRateChart(bin_data,
                                    callsign + ' QSO Rate by Band',
                                    file_callsign + '_qsos_band_rate.png',
                                    start_date=start_date,
                                    end_date=end_date)
 
-    logging.info('drawing QSO Rate by Mode chart')
+    print('drawing QSO Rate by Mode chart')
     qso_charts.QSOsByModeRateChart(bin_data,
                                    callsign + ' QSO Rate by Mode',
                                    file_callsign + '_qsos_mode_rate.png',
                                    start_date=start_date,
                                    end_date=end_date)
 
-    logging.info('drawing Grid Squares Confirmed map')
+    print('drawing Grid Squares Confirmed map')
     qso_charts.QSOsMap(qso_list,
                        callsign + ' Grid Squares Confirmed',
                        file_callsign + '_grids_map.png',
@@ -551,13 +549,29 @@ def draw_charts(qso_list, callsign, start_date=None, end_date=None):
 
 
 def main():
-    print('N1KDO\'s ADIF analyzer version %s' % __version__)
-    if len(sys.argv) == 3:
-        callsign = sys.argv[1]
-        filename = sys.argv[2]
+    parser = argparse.ArgumentParser(description='Plot charts for ADIF data')
+    parser.add_argument('--debug', action='store_true', help='show logging informational output')
+    parser.add_argument('--info', action='store_true', help='show informational diagnostic output')
+    parser.add_argument('--marathon-year', type=str, help='create DX marathon charts for year')
+    parser.add_argument('--callsign', type=str, help='Callsign to chart for')
+    parser.add_argument('--filename', type=str, help='name of ADIF file')
+    args = parser.parse_args()
+
+    log_format = '%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s'
+    log_date_format = '%Y-%m-%d %H:%M:%S'
+    if args.debug:
+        logging.basicConfig(format=log_format, datefmt=log_date_format, level=logging.DEBUG)
+    elif args.info:
+        logging.basicConfig(format=log_format, datefmt=log_date_format, level=logging.INFO)
     else:
-        callsign = ''
-        filename = ''
+        logging.basicConfig(format=log_format, datefmt=log_date_format, level=logging.WARNING)
+
+    logging.Formatter.converter = time.gmtime
+
+    print('N1KDO\'s ADIF analyzer version %s' % __version__)
+
+    callsign = args.callsign if args.callsign is not None else ''
+    filename = args.filename if args.filename is not None else ''
 
     while len(callsign) < 3:
         callsign = input('enter callsign: ')
@@ -573,7 +587,7 @@ def main():
     logging.info('read {} qsls from {}'.format(len(qso_list), filename))
 
     if qso_list is not None:
-        all_time_charts = True
+        all_time_charts = False # True
         if all_time_charts:
             start_date = None
             end_date = None
@@ -582,19 +596,28 @@ def main():
             # end_date   = datetime.datetime.strptime('20181231', '%Y%m%d').date()
             draw_charts(qso_list, callsign, start_date=start_date, end_date=end_date)
 
-        marathon_charts = True
+        marathon_charts = args.marathon_year is not None
         if marathon_charts:
+            year = args.marathon_year
+            try:
+                year_int = int(year)
+            except Exception as exc:
+                year_int = 0
+            if year_int < 1900 or year_int > 2199:
+                logging.error(f'invalid year {year_int}')
+                exit(1)
+
             # now produce marathon output
             marathon_qso_list = []
-            callsign = callsign + '_2023'
-            start_date = datetime.datetime.strptime('20230101', '%Y%m%d').date()
-            end_date = datetime.datetime.strptime('20240101', '%Y%m%d').date()
+            callsign = callsign + f'_{year_int:04d}'
+            start_date = datetime.datetime.strptime(f'{year_int:04d}0101', '%Y%m%d').date()
+            end_date = datetime.datetime.strptime(f'{year_int+1:04d}0101', '%Y%m%d').date()
             for qso in qso_list:
                 qso_date = datetime.datetime.strptime(qso['qso_date'], '%Y%m%d').date()
                 if start_date <= qso_date < end_date:
                     marathon_qso_list.append(qso)
             draw_charts(marathon_qso_list, callsign, start_date=start_date, end_date=end_date)
-    logging.info('done.')
+    print('done.')
 
 
 if __name__ == '__main__':

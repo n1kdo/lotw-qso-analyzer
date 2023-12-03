@@ -12,15 +12,13 @@ __copyright__ = 'Copyright 2020, 2021, 2023 Jeffrey B. Otterson'
 __license__ = 'Simplified BSD'
 __version__ = '0.05'
 
-import adif
-import adif_log_analyzer
+import argparse
 import logging
 import os.path
 import time
 
-logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S',
-                    level=logging.DEBUG)
-logging.Formatter.converter = time.gmtime
+import adif
+import adif_log_analyzer
 
 
 def get_file_date_size(filename):
@@ -68,8 +66,38 @@ def get_password(password):
 
 
 def main():
+    parser = argparse.ArgumentParser(description='get LoTW Records and plot')
+    parser.add_argument('--debug', action='store_true', help='show logging informational output')
+    parser.add_argument('--info', action='store_true', help='show informational diagnostic output')
+    parser.add_argument('--login-callsign', type=str, help='Callsign to use to log in to LoTW')
+    parser.add_argument('--password', type=str, help='Password to use to log into to LoTW')
+    parser.add_argument('--callsign', type=str, help='Callsign to analyze records for')
+    args = parser.parse_args()
+
+    log_format = '%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s'
+    log_date_format = '%Y-%m-%d %H:%M:%S'
+    if args.debug:
+        logging.basicConfig(format=log_format, datefmt=log_date_format, level=logging.DEBUG)
+    elif args.info:
+        logging.basicConfig(format=log_format, datefmt=log_date_format, level=logging.INFO)
+    else:
+        logging.basicConfig(format=log_format, datefmt=log_date_format, level=logging.WARNING)
+
+    logging.Formatter.converter = time.gmtime
+
     login_callsign = ''
     password = None
+
+    if args.callsign is not None:
+        callsign = args.callsign
+        if args.login_callsign is None:
+            login_callsign = args.callsign
+    if args.login_callsign is not None:
+        login_callsign = args.login_callsign
+
+    if args.password is not None:
+        password = args.password
+
     data_dir = 'data/'
     if not os.path.isdir(data_dir):
         print(f'cannot find data directory {data_dir}, creating...')
@@ -82,9 +110,10 @@ def main():
     while len(login_callsign) < 3:
         login_callsign = input('Please enter your lotw login callsign: ')
 
-    callsign = input(f'Please enter your callsign ({login_callsign}): ')
-    if callsign == '':
-        callsign = login_callsign
+    while len(callsign) < 3:
+        callsign = input(f'Please enter your callsign ({login_callsign}): ')
+        if callsign == '':
+            callsign = login_callsign
 
     filename_callsign = callsign.replace('/', '-')
 
