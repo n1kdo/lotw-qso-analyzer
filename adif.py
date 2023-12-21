@@ -487,13 +487,13 @@ def call_lotw(**params):
 
     data = urllib.parse.urlencode(params)
     req = urllib.request.Request(url + '?' + data)
-    logging.debug(f'calling {url}?{data} ...')
+    logging.debug(f'calling {url}...')
     t0 = time.time()
     try:
         response = urllib.request.urlopen(req)
         t1 = time.time()
     except urllib.error.HTTPError as q:
-        logging.error(f'problem with request {req.full_url}')
+        logging.error(f'problem with request {url}')
         logging.error(q.reason)
         for line in q:
             logging.error(line)
