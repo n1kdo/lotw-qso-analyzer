@@ -1,5 +1,5 @@
 Cartopy~=0.22.0
-Pillow~=10.1
+Pillow~=10.2
 cycler~=0.12
 matplotlib~=3.8.2
 numpy~=1.26.2
