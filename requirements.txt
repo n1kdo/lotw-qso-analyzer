@@ -1,7 +1,7 @@
 Cartopy~=0.22.0
 Pillow~=10.1
 cycler~=0.12
-matplotlib~=3.8.2
+matplotlib~=3.8.3
 numpy~=1.26.2
 pyshp~=2.3
 python-dateutil~=2.8
