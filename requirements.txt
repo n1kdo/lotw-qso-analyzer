@@ -5,5 +5,5 @@ matplotlib~=3.8.2
 numpy~=1.26.2
 pyshp~=2.3
 python-dateutil~=2.8
-shapely~=2.0.2
+shapely~=2.0.3
 six~=1.16
