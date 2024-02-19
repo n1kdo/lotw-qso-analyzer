@@ -86,6 +86,7 @@ def main():
     logging.Formatter.converter = time.gmtime
 
     login_callsign = ''
+    callsign = ''
     password = None
 
     if args.callsign is not None:
