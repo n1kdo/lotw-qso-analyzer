@@ -59,7 +59,6 @@ def get_password(password):
     if password is not None and len(password) >= 6:
         return password
     while True:
-        # password = getpass.getpass(prompt='Enter your LoTW Password: ')
         password = input('Enter your LoTW Password: ')
         if password is not None and len(password) > 0:
             return password

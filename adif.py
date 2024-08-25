@@ -1,5 +1,4 @@
 import logging
-import re
 import time
 import urllib.error
 import urllib.parse
@@ -24,10 +23,11 @@ BANDS = ['2190M', '630M', '560M', '160M',
 MODES = ['CW', 'DATA', 'IMAGE', 'PHONE']
 
 """
-list of DXCC countries.
+dict of DXCC countries.
 key is DXCC number
 value is tuple (name, deleted)
 """
+# noinspection SpellCheckingInspection
 dxcc_countries = {
     '0': ('None', False),
     '1': ('Canada', False),
@@ -458,7 +458,7 @@ qso_key_parts = ['qso_date', 'time_on', 'call', 'band']
 def adif_mode_to_lotw_modegroup(adif_mode):
     lotw_modegroup = adif_mode_to_lotw_modegroup_map.get(adif_mode.upper())
     if lotw_modegroup is None:
-        logging.warning('cannot find lotw mode group for adif mode {}, guessing this is DATA'.format(adif_mode))
+        logging.warning(f'cannot find lotw mode group for adif mode {adif_mode}, guessing this is DATA')
         lotw_modegroup = 'DATA'
     return lotw_modegroup
 
@@ -620,7 +620,7 @@ def read_adif_file(adif_file_name):
     :param adif_file_name:  the name of the file to read.
     :return: adif header as dict, array of QSO data as list of dicts
     """
-    logging.info('reading adif file {}'.format(adif_file_name))
+    logging.info(f'reading adif file {adif_file_name}')
     qsos = []
     header = {}
     qso = {}
@@ -684,10 +684,10 @@ def read_adif_file(adif_file_name):
                     qso[element_name.lower()] = element_value
                     state = 0  # start new adif value.
     except FileNotFoundError as fnfe:
-        logging.warning('could not read file {}'.format(adif_file_name))
+        logging.warning(f'could not read file {adif_file_name}')
         logging.warning(fnfe)
-    logging.info('read {} QSOs from {}'.format(len(qsos), adif_file_name))
-    return header, sorted(qsos, key=lambda qso: qso_key(qso))
+    logging.info(f'read {len(qsos)} QSOs from {adif_file_name}')
+    return header, sorted(qsos, key=lambda sort_qso: qso_key(sort_qso))
 
 
 def compare_qsos(qso1, qso2):
@@ -739,7 +739,7 @@ def merge(header, qsos, new_qsos):
                     if found_qso.get(key) != new_qso.get(key):
                         updated = True
                         found_qso[key] = new_qso.get(key)
-                        logging.debug('updating {} with {}'.format(key, new_qso.get(key)))
+                        logging.debug(f'updating {key} with {new_qso.get(key)}')
             if updated:
                 updated_count += 1
                 logging.debug('updated QSO: ' + str(found_qso))
@@ -749,20 +749,20 @@ def merge(header, qsos, new_qsos):
             logging.debug('ignoring QSO: ' + str(new_qso))
 
     header['app_lotw_numrec'] = str(len(qsos))
-    logging.info('Added {}, updated {} QSOs'.format(added_count, updated_count))
+    logging.info(f'Added {added_count}, updated {updated_count} QSOs')
     return header, sorted(qsos, key=lambda qso: qso_key(qso))
 
 
 def write_adif_field(key, item):
     if item is not None:
         ss = str(item)
-        return '<{0}:{1}>{2}\n'.format(key, len(ss), ss)
+        return f'<{key}:{len(ss)}>{ss}\n'
     else:
-        return '<{0}>\n'.format(key)
+        return f'<{key}>\n'
 
 
 def write_adif_file(header, qsos, adif_file_name, abridge_results=True):
-    logging.info('write_adif_file %s' % adif_file_name)
+    logging.info(f'write_adif_file {adif_file_name}')
     save_keys = ['app_lotw_mode',
                  'app_lotw_modegroup',
                  'app_n1kdo_qso_combined',
@@ -821,11 +821,11 @@ def write_adif_file(header, qsos, adif_file_name, abridge_results=True):
                         f.write(write_adif_field(key, value))
                     else:
                         if key not in ignore_keys:
-                            logging.warning('not saving %s %s' % (key, value))
+                            logging.warning(f'not saving {key} {value}')
                 else:
                     f.write(write_adif_field(key, value))
             f.write('<eor>\n\n')
-    logging.info('wrote_adif_file %s' % adif_file_name)
+    logging.info(f'wrote_adif_file {adif_file_name}')
 
 
 def compare_lists(qso_list, cards_list):
@@ -856,19 +856,19 @@ def combine_qsos(qso_list, qsl_cards):
                 if qsl_rcvd != 'y':
                     break
                 if found:  # have already seen this qsl
-                    logging.warning('already seen {} {} {} '.format(card_merge_key, str(qso), str(card)))
+                    logging.warning(f'already seen {card_merge_key} {str(qso)} {str(card)} ')
                 found = True
                 for k in card:
                     if k not in merge_key_parts:
                         qso[k] = card[k]
                 updated_qsls.append(qso)
         if not found:
-            #  logging.info('QSL added from card: %s %s %s %s' % (card['call'], card['band'], card['qso_date'], card['country']))
+            # logging.info(f'QSL added from card: {card["call"]} {card["band"]} {card["qso_date"]} {card["country"]}')
             card['app_n1kdo_qso_combined'] = 'qslcards QSL added'
             card['qsl_rcvd'] = 'y'
             added_qsls.append(card)
             qso_list.append(card)
-    logging.info('updated %d QSL from cards, added %d QSLs from cards' % (len(updated_qsls), len(added_qsls)))
+    logging.info(f'updated {len(updated_qsls)} QSL from cards, added {len(added_qsls)} QSLs from cards')
     return qso_list
 
 

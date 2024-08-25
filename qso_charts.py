@@ -1,8 +1,7 @@
 import datetime
 import logging
 import numpy as np
-import matplotlib
-from matplotlib.dates import DateFormatter, YearLocator, MonthLocator, DayLocator, HourLocator
+from matplotlib.dates import DateFormatter, YearLocator, MonthLocator, DayLocator, HourLocator, date2num
 
 import matplotlib.pyplot as plt
 import matplotlib.backends.backend_agg as agg
@@ -190,7 +189,7 @@ class QSOsByDateChart(BinnedQSOChart):
 
         super().__init__(bin_data, title, filename, start_date, end_date, upper)
 
-        plot_dates = matplotlib.dates.date2num(qso_dates)
+        plot_dates = date2num(qso_dates)
         colors = ['#ffff00', '#ff9933', '#cc6600', '#660000']
         labels = [f'{dxcc} dxcc', f'{challenge} challenge', f'{confirmed} confirmed', f'{worked} logged']
 
@@ -221,7 +220,7 @@ class DXCCQSOsChart(BinnedQSOChart):
 
         number_dxcc = bin_data.data[-1]['total_dxcc']
         number_challenge = bin_data.data[-1]['total_challenge']
-        plot_dates = matplotlib.dates.date2num(dates)
+        plot_dates = date2num(dates)
 
         super().__init__(bin_data, title, filename, start_date, end_date, 0)
 
@@ -276,7 +275,7 @@ class VuccFfmaQSOsChart(BinnedQSOChart):
         number_vucc = bin_data.data[-1]['total_vucc']
         number_ffma = bin_data.data[-1]['total_ffma']
 
-        plot_dates = matplotlib.dates.date2num(dates)
+        plot_dates = date2num(dates)
 
         limit_factor = 500
         limit = (int(number_vucc / limit_factor) + 1) * limit_factor
@@ -340,7 +339,7 @@ class ChallengeBandsByDateChart(BinnedQSOChart):
 
         scale_factor = 50
         y_end = (int(biggest / scale_factor) + 1) * scale_factor
-        plot_dates = matplotlib.dates.date2num(data[0])
+        plot_dates = date2num(data[0])
 
         super().__init__(bin_data, title, filename, start_date, end_date, 0)
 

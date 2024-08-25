@@ -35,16 +35,15 @@ import argparse
 import datetime
 import logging
 import os
-import sys
 import time
 
 import adif
 import qso_charts
 
 __author__ = 'Jeffrey B. Otterson, N1KDO'
-__copyright__ = 'Copyright 2017 - 2023 Jeffrey B. Otterson'
+__copyright__ = 'Copyright 2017 - 2024 Jeffrey B. Otterson'
 __license__ = 'Simplified BSD'
-__version__ = '0.12.00'
+__version__ = '0.12.01'
 
 FFMA_GRIDS = ['CM79', 'CM86', 'CM87', 'CM88', 'CM89', 'CM93', 'CM94', 'CM95', 'CM96', 'CM97', 'CM98', 'CM99',
               'CN70', 'CN71', 'CN72', 'CN73', 'CN74', 'CN75', 'CN76', 'CN77', 'CN78', 'CN80', 'CN81', 'CN82',
@@ -601,7 +600,7 @@ def main():
             year = args.marathon_year
             try:
                 year_int = int(year)
-            except Exception as exc:
+            except ValueError:
                 year_int = 0
             if year_int < 1900 or year_int > 2199:
                 logging.error(f'invalid year {year_int}')
