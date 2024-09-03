@@ -434,6 +434,7 @@ dxcc_countries = {
     '522': ('Republic of Kosovo', False),
 }
 
+# noinspection SpellCheckingInspection
 adif_mode_to_lotw_modegroup_map = {
     'AM': 'PHONE',
     'CW': 'CW',
