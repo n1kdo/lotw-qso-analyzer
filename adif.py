@@ -488,7 +488,7 @@ def call_lotw(**params):
 
     data = urllib.parse.urlencode(params)
     req = urllib.request.Request(url + '?' + data)
-    logging.debug(f'calling {url}...')
+    logging.debug(f'calling "{url}?{data}"')
     t0 = time.time()
     try:
         response = urllib.request.urlopen(req)
@@ -514,18 +514,19 @@ def call_lotw(**params):
             first_line = False
         if adif_file is not None:
             adif_file.write(line + '\n')
-        item_name, item_value = adif_field(line)
-        if item_value is None or len(item_value) == 0:  # header field.
-            if item_name is not None:
-                if item_name == 'eor':
-                    qsos.append(qso)
-                    qso = {}
-                if item_name == 'eoh':
-                    header = qso
-                    qsos = []
-                    qso = {}
-        else:
-            qso[item_name] = item_value
+        if len(line) > 0 and line[0] == '<':
+            item_name, item_value = adif_field(line)
+            if item_value is None or len(item_value) == 0:  # header field.
+                if item_name is not None:
+                    if item_name == 'eor':
+                        qsos.append(qso)
+                        qso = {}
+                    if item_name == 'eoh':
+                        header = qso
+                        qsos = []
+                        qso = {}
+            else:
+                qso[item_name] = item_value
     if adif_file is not None:
         adif_file.close()
     t2 = time.time()
@@ -564,43 +565,51 @@ def adif_field(s):
     element_type = ''
     element_value = ''
     bytes_to_copy = 0
-    for c in s:
-        if state == 0:  # initial, look for <
-            if c == '<':
-                element_name = ''
-                state = 1
-        elif state == 1:  # copying name
-            if c == ':':  # end of name, start of size
-                element_name = element_name.lower()
-                element_size = ''
-                state = 2
-            elif c == '>':  # end of name, no size, not data, must be header
-                state = 0
-            else:  # keep copying the name.
-                element_name += c
-        elif state == 2:  # copying size
-            if c == ':':  # end of size, start of type
-                element_type = ''
-                bytes_to_copy = int(element_size.strip())
-                state = 3
-            elif c == '>':
-                element_value = ''
-                bytes_to_copy = int(element_size.strip())
-                state = 4
-            else:
-                element_size += c
-        elif state == 3:  # copying type
-            if c == '>':
-                element_value = ''
-                state = 4
-            else:
-                element_type += c
-        elif state == 4:  # copying value.
-            if bytes_to_copy > 0:
-                element_value += c
-                bytes_to_copy -= 1
-            if bytes_to_copy == 0:
-                state = 0  # start new adif value.
+    try:
+        for c in s:
+            if state == 0:  # initial, look for <
+                if c == '<':
+                    element_name = ''
+                    state = 1
+            elif state == 1:  # copying name
+                if c == ':':  # end of name, start of size
+                    element_name = element_name.lower()
+                    element_size = ''
+                    state = 2
+                elif c == '>':  # end of name, no size, not data, must be header
+                    state = 0
+                else:  # keep copying the name.
+                    element_name += c
+            elif state == 2:  # copying size
+                if c == ':':  # end of size, start of type
+                    element_type = ''
+                    bytes_to_copy = int(element_size.strip())
+                    state = 3
+                elif c == '>':
+                    element_value = ''
+                    bytes_to_copy = int(element_size.strip())
+                    state = 4
+                elif c.isdigit():
+                    element_size += c
+                else:  # not : or > or a digit, must be something else.
+                    if c in 'NnSs':
+                        element_type += c
+                        state = 3
+                    pass
+            elif state == 3:  # copying type
+                if c == '>':
+                    element_value = ''
+                    state = 4
+                else:
+                    element_type += c
+            elif state == 4:  # copying value.
+                if bytes_to_copy > 0:
+                    element_value += c
+                    bytes_to_copy -= 1
+                if bytes_to_copy == 0:
+                    state = 0  # start new adif value.
+    except Exception as exc:
+        logging.error(f'problem parsing adif field: "{s}" : {exc}')
     return element_name, element_value
 
 
