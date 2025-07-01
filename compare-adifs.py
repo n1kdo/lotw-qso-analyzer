@@ -1,11 +1,13 @@
 """
 compare two adif files
 """
+import argparse
 import datetime
 import logging
 import time
-from adif import read_adif_file
+from adif import read_adif_file, qso_string
 
+__version__ = '0.0.1'
 
 def adif_date_range(qsos, start_date, end_date):
     narrowed_qsos = []
@@ -29,11 +31,41 @@ def qso_key(qso):
 
 
 def main():
-    start_date = datetime.datetime.strptime('20230101', '%Y%m%d').date()
-    end_date = datetime.datetime.strptime('20240101', '%Y%m%d').date()
-    left_file = 'j:\\2023-dxk.adi'
-    #right_file = 'j:\\N1KDO-clublog-2023-11-30.adi'
-    right_file = 'C:\\Users\\Jeff\\IdeaProjects\\lotw-qso-analyzer\\data\\n1kdo-lotw.adif'
+
+    parser = argparse.ArgumentParser(description='Compare ADIF files')
+
+    parser.add_argument('--start_date', help='start date')
+    parser.add_argument('--end_date', help='end date')
+    parser.add_argument('--debug', action='store_true', help='show logging informational output')
+    parser.add_argument('--info', action='store_true', help='show informational diagnostic output')
+    parser.add_argument('filename', nargs=2, type=str, help='name of ADIF file')
+    args = parser.parse_args()
+
+    log_format = '%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s'
+    log_date_format = '%Y-%m-%d %H:%M:%S'
+    if args.debug:
+        logging.basicConfig(format=log_format, datefmt=log_date_format, level=logging.DEBUG)
+    elif args.info:
+        logging.basicConfig(format=log_format, datefmt=log_date_format, level=logging.INFO)
+    else:
+        logging.basicConfig(format=log_format, datefmt=log_date_format, level=logging.WARNING)
+
+    logging.Formatter.converter = time.gmtime
+
+    if args.start_date is not None:
+        start_date = datetime.datetime.strptime(args.start_date, '%Y%m%d').date()
+    else:
+        start_date = None
+    if args.end_date is not None:
+        end_date = datetime.datetime.strptime(args.end_date, '%Y%m%d').date()
+    else:
+        end_date = None
+    if len(args.filename) != 2:
+        logging.error('wrong number of files, must be two')
+        exit(1)
+
+    left_file = args.filename[0]
+    right_file = args.filename[1]
 
     # read the two adif files
     header1, left_qsos = read_adif_file(left_file)
@@ -42,10 +74,11 @@ def main():
     logging.info(f'{len(right_qsos)} qsos read from {right_file}')
 
     # narrow to date range
-    left_qsos = adif_date_range(left_qsos, start_date, end_date)
-    logging.info(f'{len(left_qsos)} qsos narrowed from {left_file}')
-    right_qsos = adif_date_range(right_qsos, start_date, end_date)
-    logging.info(f'{len(right_qsos)} qsos narrowed from {right_file}')
+    if start_date is not None and end_date is not None:
+        left_qsos = adif_date_range(left_qsos, start_date, end_date)
+        logging.info(f'{len(left_qsos)} qsos narrowed from {left_file}')
+        right_qsos = adif_date_range(right_qsos, start_date, end_date)
+        logging.info(f'{len(right_qsos)} qsos narrowed from {right_file}')
 
     # build keys
     left_keys = []

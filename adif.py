@@ -1,4 +1,5 @@
 import logging
+import datetime
 import time
 import urllib.error
 import urllib.parse
@@ -706,6 +707,25 @@ def compare_qsos(qso1, qso2):
         if qso1.get(field) != qso2.get(field):
             return False
     return True
+
+
+def qso_string(qso):
+    fields = ['call', 'band', 'mode', 'qso_date', 'time_off']
+    data = []
+    for field in fields:
+        item = qso.get(field, 'missing')
+        data.append(item)
+    return ' '.join(data)
+
+
+def qso_timestamp(qso):
+    dt = qso.get('qso_date')
+    tm = qso.get('time_off')
+
+    if dt is None or tm is None:
+        return None
+    ts  = datetime.datetime.strptime(dt + tm, '%Y%m%d%H%M%S')
+    return ts
 
 
 def qso_key(qso):
