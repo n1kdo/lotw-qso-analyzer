@@ -697,6 +697,7 @@ def read_adif_file(adif_file_name):
     except FileNotFoundError as fnfe:
         logging.warning(f'could not read file {adif_file_name}')
         logging.warning(fnfe)
+        return None, []
     logging.info(f'read {len(qsos)} QSOs from {adif_file_name}')
     return header, sorted(qsos, key=lambda sort_qso: qso_key(sort_qso))
 
