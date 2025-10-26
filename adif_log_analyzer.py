@@ -172,7 +172,6 @@ def crunch_data(qso_list):
     last_date = None
     n_worked = 0
     n_confirmed = 0
-    n_verified = 0
     n_challenge = 0
 
     date_records = {}  # key is qso date.  value is dict, first record is summary data.
@@ -199,7 +198,6 @@ def crunch_data(qso_list):
 
         if qso_date is not None:
             confirmed = 0
-            verified = 0
             new_dxcc = 0
             challenge = 0
             vucc = 0
@@ -210,15 +208,9 @@ def crunch_data(qso_list):
             lotw_qsl_rcvd = (qso.get('lotw_qsl_rcvd') or 'N').lower()
             if lotw_qsl_rcvd == 'y':
                 confirmed = 1
-            elif lotw_qsl_rcvd == 'v':
-                confirmed = 1
-                verified = 1
             qsl_rcvd = (qso.get('qsl_rcvd') or 'N').lower()
             if qsl_rcvd == 'y':
                 confirmed = 1
-            elif qsl_rcvd == 'v':
-                confirmed = 1
-                verified = 1
 
             dxcc_lookup_tuple = adif.dxcc_countries.get(qso_dxcc) or ('None', False)
             dxcc_name = dxcc_lookup_tuple[0]
@@ -287,7 +279,6 @@ def crunch_data(qso_list):
                     grids[qso_grid] = grid_count
 
             n_confirmed += confirmed
-            n_verified += verified
             n_challenge += challenge
 
             if qso_date is not None:
@@ -352,10 +343,10 @@ def crunch_data(qso_list):
             else:
                 logging.warning("Invalid QSO record has no date ", qso)
 
+    print()
     print('%5d counted worked' % n_worked)
     print(f'{len(unique_calls):5d} unique calls')
     print('%5d confirmed' % n_confirmed)
-    print('%5d verified' % n_verified)
     print('%5d challenge' % n_challenge)
     for band in adif.BANDS:
         c = int(total_counts['challenge_' + band])
@@ -385,6 +376,7 @@ def crunch_data(qso_list):
     print('%5d unique log dates' % len(date_records))
     print('first QSO date: ' + first_date.strftime('%Y-%m-%d'))
     print('last QSO date: ' + last_date.strftime('%Y-%m-%d'))
+    print()
 
     # now calculate running totals by date
     total_worked = 0
@@ -434,8 +426,8 @@ def crunch_data(qso_list):
     #                                                               counts['challenge'],
     #                                                               counts['total_challenge']))
 
-    if True:  # show summary data, not needed for charting, but possibly interesting.
-        # top 20 most productive days
+    # top 20 most productive days
+    if False:
         number_of_top_days = 20
         if len(date_records) < number_of_top_days:
             number_of_top_days = len(date_records)
@@ -446,12 +438,13 @@ def crunch_data(qso_list):
         for i in range(0, number_of_top_days):
             print('%2d  %12s %5d' % (i + 1, str(most_productive[i]['qdate']), most_productive[i]['worked']))
 
+    # show top calls
+    if False:
         calls_by_qso = []
         for call, qso_list in unique_calls.items():
             calls_by_qso.append((call, len(qso_list)))
         calls_by_qso = sorted(calls_by_qso, key=lambda count: count[1], reverse=True)
 
-        # show top calls
         number_of_top_calls = 50
         print()
         print('Top %d calls' % number_of_top_calls)
