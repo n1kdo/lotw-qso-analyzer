@@ -18,10 +18,6 @@ over time.
 
 ![Example](charts/N1KDO_qsos_by_date.png)
 
-![Example](charts/N1KDO_qso_rate.png)
-
-![Example](charts/N1KDO_qsos_band_rate.png)
-
 ![Example](charts/N1KDO_challenge_bands_by_date.png)
 
 ![Example](charts/N1KDO_grids_map.png)
