@@ -2,3 +2,7 @@
 __pycache__/
 data/*
 *.adif
+/charts/N1KDO_qso_rate.png
+/charts/N1KDO_qsos_band_rate.png
+/charts/N1KDO_qsos_by_date.png
+/charts/N1KDO_qsos_mode_rate.png
