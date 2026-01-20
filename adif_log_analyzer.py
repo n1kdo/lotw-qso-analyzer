@@ -127,7 +127,7 @@ def crunch_data(qso_list):
     for qso in qso_list:
         app_lotw_qso_timestamp = qso.get('app_lotw_qso_timestamp')
         if app_lotw_qso_timestamp is None:
-            logging.warning('app_lotw_qso_timestamp is None')
+            #logging.warning('app_lotw_qso_timestamp is None')
             qso_date = qso.get('qso_date')
             qso_time = qso.get('time_on') or ''
             if len(qso_time) != 6:
