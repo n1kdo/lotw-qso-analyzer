@@ -291,7 +291,7 @@ class VuccFfmaQSOsChart(BinnedQSOChart):
                                    mew=0, markersize=5, label='Confirmed VUCC QSOs ({:d})'.format(number_vucc))
         lines2 = axb.plot_date(plot_dates, total_ffma_data,
                                fmt='g:',
-                               mew=0, markersize=5, label='Confirmed FFMA QSOs({:d})'.format(number_ffma))
+                               mew=0, markersize=5, label='Confirmed FFMA QSOs ({:d})'.format(number_ffma))
 
         self.ax.tick_params(axis='y', colors=FG, which='major', direction='out', right=False, labelcolor='r')
         step = 50 if limit < 1000 else 100
