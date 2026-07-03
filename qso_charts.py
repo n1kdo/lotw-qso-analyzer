@@ -62,9 +62,7 @@ class BinnedQSOData:
         self.num_days = days.days + 1
 
         if self.num_days <= 7:  # a week
-            self.bin_size = 3600  # 1 hour
-            self.num_bins = self.num_days * 24 + 1
-            self.bin_size = 60 * 30  # 1/2 hour
+            self.bin_size = 1800  # 1/2 hour
             self.num_bins = self.num_days * 24 * 2 + 1
         elif self.num_days <= 28:  # a month
             self.bin_size = 3600 * 12  # 12 hours
@@ -383,7 +381,7 @@ class QSOsRateChart(BinnedQSOChart):
                 data[1].append(challenge)
                 data[2].append(confirmed)
                 data[3].append(worked)
-                plot_widths = np.timedelta64(bin_data.bin_size, 's')
+        plot_widths = np.timedelta64(bin_data.bin_size, 's')
 
         for i in range(0, len(data[0])):
             total = data[0][i] + data[1][i] + data[2][i] + data[3][i]
