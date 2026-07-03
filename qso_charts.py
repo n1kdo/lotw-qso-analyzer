@@ -168,19 +168,14 @@ class QSOsByDateChart(BinnedQSOChart):
         confirmed = 0
         challenge = 0
         dxcc = 0
-        for bin_dict in bin_data.data:
-            bin_date = bin_dict['datetime']
-            worked = bin_dict['total_worked']
-            confirmed = bin_dict['total_confirmed']
-            challenge = bin_dict['total_challenge']
-            dxcc = bin_dict['total_dxcc']
-            qso_dates.append(bin_date)
-            data[0].append(dxcc)
-            data[1].append(challenge - dxcc)
-            data[2].append(confirmed - challenge)
-            data[3].append(worked - confirmed)
-            if worked > biggest:
-                biggest = worked
+        qso_dates = [bin_dict['datetime'] for bin_dict in bin_data.data]
+        data = [
+            [bin_dict['total_dxcc'] for bin_dict in bin_data.data],
+            [bin_dict['total_challenge'] - bin_dict['total_dxcc'] for bin_dict in bin_data.data],
+            [bin_dict['total_confirmed'] - bin_dict['total_challenge'] for bin_dict in bin_data.data],
+            [bin_dict['total_worked'] - bin_dict['total_confirmed'] for bin_dict in bin_data.data]
+        ]
+        biggest = max(bin_dict['total_worked'] for bin_dict in bin_data.data)
 
         scale_factor = 1000
         upper = (biggest // scale_factor + 1) * scale_factor
@@ -368,25 +363,29 @@ class QSOsRateChart(BinnedQSOChart):
         data = [[], [], [], []]
         plot_widths = []
         maxy = 0
-        for bin_dict in bin_data.data:
-            bin_date = bin_dict['datetime'].date()
-            if (start_date is None or bin_date >= start_date) and (end_date is None or bin_date <= end_date):
-                # compute stacked bar sizes
-                new_dxcc = bin_dict['new_dxcc']
-                challenge = bin_dict['challenge'] - bin_dict['new_dxcc']
-                confirmed = bin_dict['confirmed'] - bin_dict['challenge']
-                worked = bin_dict['worked'] - bin_dict['confirmed']
-                plot_dates.append(np.datetime64(bin_date))
-                data[0].append(new_dxcc)
-                data[1].append(challenge)
-                data[2].append(confirmed)
-                data[3].append(worked)
-        plot_widths = np.timedelta64(bin_data.bin_size, 's')
+        # Filter data first
+        filtered_data = [
+            {
+                'date': bin_dict['datetime'].date(),
+                'new_dxcc': bin_dict['new_dxcc'],
+                'challenge': bin_dict['challenge'] - bin_dict['new_dxcc'],
+                'confirmed': bin_dict['confirmed'] - bin_dict['challenge'],
+                'worked': bin_dict['worked'] - bin_dict['confirmed']
+            }
+            for bin_dict in bin_data.data
+            if (start_date is None or bin_dict['datetime'].date() >= start_date)
+            and (end_date is None or bin_dict['datetime'].date() <= end_date)
+        ]
 
-        for i in range(0, len(data[0])):
-            total = data[0][i] + data[1][i] + data[2][i] + data[3][i]
-            if total > maxy:
-                maxy = total
+        plot_dates = [np.datetime64(d['date']) for d in filtered_data]
+        data = [
+            [d[key] for d in filtered_data]
+            for key in ['new_dxcc', 'challenge', 'confirmed', 'worked']
+        ]
+        plot_widths = np.timedelta64(bin_data.bin_size, 's')
+        
+        # Calculate maxy using a generator expression
+        maxy = max((sum(row) for row in zip(*data)), default=0)
 
         super().__init__(bin_data, title, filename, start_date, end_date, 0)
 
