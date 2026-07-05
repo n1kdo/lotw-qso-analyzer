@@ -101,6 +101,17 @@ class BinnedQSOData:
 
 
 class BinnedQSOChart(QsoChart):
+    """
+    base class for all time-binned QSO charts.
+    note that plot_dates is instantiated at the class level;
+    the assumption is that if more than one chart function is called,
+    it will have the same date range as the last one, which will prevent
+    repeated calls to matplotlib's date2num() function, which is slow-ish.
+    """
+    plot_dates = None
+    plot_dates_start = None
+    plot_dates_end = None
+
     def __init__(self, bin_data, title, filename=None, start_date=None, end_date=None, max_y=0):
         super().__init__(title, filename, True)
         self.bin_data = bin_data
@@ -116,6 +127,16 @@ class BinnedQSOChart(QsoChart):
             bins_end_date = self.bin_data.data[-1].get('datetime')
             if bins_end_date is not None:
                 end_date = bins_end_date.date() + datetime.timedelta(days=1)  # get one more day
+
+        range_start_date = date2num(bin_data.data[0]['datetime'])
+        range_end_date = date2num(bin_data.data[-1]['datetime'])
+
+        if ((range_start_date != BinnedQSOChart.plot_dates_start) or
+            (range_end_date != BinnedQSOChart.plot_dates_end) or
+            (BinnedQSOChart.plot_dates is None)):
+            BinnedQSOChart.plot_dates_start = range_start_date
+            BinnedQSOChart.plot_dates_start = range_end_date
+            BinnedQSOChart.plot_dates = date2num([bin_dict['datetime'] for bin_dict in bin_data.data])
 
         self.ax = self.fig.add_subplot(111, facecolor=self.BG)
         self.ax.set_title(self.title, color=self.FG, size='xx-large', weight='bold')
@@ -161,14 +182,10 @@ class QSOsByDateChart(BinnedQSOChart):
     def __init__(self, bin_data, title, filename=None, start_date=None, end_date=None):
         logging.info(f'drawing QSOsByDateChart "{title}" to {filename}.')
         # calculate some data before setting up the chart...
-        qso_dates = []
-        data = [[], [], [], []]
-        biggest = 0
         worked = 0
         confirmed = 0
         challenge = 0
         dxcc = 0
-        qso_dates = [bin_dict['datetime'] for bin_dict in bin_data.data]
         data = [
             [bin_dict['total_dxcc'] for bin_dict in bin_data.data],
             [bin_dict['total_challenge'] - bin_dict['total_dxcc'] for bin_dict in bin_data.data],
@@ -182,7 +199,7 @@ class QSOsByDateChart(BinnedQSOChart):
 
         super().__init__(bin_data, title, filename, start_date, end_date, upper)
 
-        plot_dates = date2num(qso_dates)
+        plot_dates = BinnedQSOChart.plot_dates
         colors = ['#ffff00', '#ff9933', '#cc6600', '#660000']
         labels = [f'{dxcc} dxcc', f'{challenge} challenge', f'{confirmed} confirmed', f'{worked} logged']
 
@@ -201,31 +218,28 @@ class DXCCQSOsChart(BinnedQSOChart):
     def __init__(self, bin_data, title, filename=None, start_date=None, end_date=None):
         logging.info(f'drawing DXCCQSOsChart "{title}" to {filename}.')
         # calculate some data before setting up the chart...
-        dates = []
         total_dxcc_data = []
         total_challenge_data = []
 
         for bin_dict in bin_data.data:
-            qso_date = bin_dict['datetime']
-            dates.append(qso_date)
             total_dxcc_data.append(bin_dict['total_dxcc'])
             total_challenge_data.append(bin_dict['total_challenge'])
 
         number_dxcc = bin_data.data[-1]['total_dxcc']
         number_challenge = bin_data.data[-1]['total_challenge']
-        plot_dates = date2num(dates)
 
         super().__init__(bin_data, title, filename, start_date, end_date, 0)
+        plot_dates = BinnedQSOChart.plot_dates
 
         axb = self.ax.twinx()
         self.ax.set_ylim(0, 350)
         axb.set_ylim(0, 3500)
 
-        lines1 = self.ax.plot_date(plot_dates, total_dxcc_data,
-                                   fmt='r-',
+        lines1 = self.ax.plot(plot_dates, total_dxcc_data,
+                                   color='red', linestyle='-',
                                    mew=0, markersize=5, label='Current DXCCs ({:d})'.format(number_dxcc))
-        lines2 = axb.plot_date(plot_dates, total_challenge_data,
-                               fmt='g:',
+        lines2 = axb.plot(plot_dates, total_challenge_data,
+                               color='green', linestyle=':',
                                mew=0, markersize=5, label='Challenge ({:d})'.format(number_challenge))
 
         self.ax.set_ylabel('DXCCs', color='r', size='x-large', weight='bold')
@@ -255,36 +269,33 @@ class VuccFfmaQSOsChart(BinnedQSOChart):
     def __init__(self, bin_data, title, filename=None, start_date=None, end_date=None):
         logging.info(f'drawing VuccFfmaQSOsChart "{title}" to {filename}.')
         # calculate some data before setting up the chart...
-        dates = []
         total_vucc_data = []
         total_ffma_data = []
 
         for bin_dict in bin_data.data:
-            qso_date = bin_dict['datetime']
-            dates.append(qso_date)
             total_vucc_data.append(bin_dict['total_vucc'])
             total_ffma_data.append(bin_dict['total_ffma'])
 
         number_vucc = bin_data.data[-1]['total_vucc']
         number_ffma = bin_data.data[-1]['total_ffma']
 
-        plot_dates = date2num(dates)
 
         limit_factor = 500
         limit = (int(number_vucc / limit_factor) + 1) * limit_factor
 
         super().__init__(bin_data, title, filename, start_date, end_date, limit)
+        plot_dates = BinnedQSOChart.plot_dates
 
         self.ax.set_ylim(0, limit)
         axb = self.ax.twinx()
         axb.set_ylim(0, 500)  # 488 FFMA grids
 
-        lines1 = self.ax.plot_date(plot_dates, total_vucc_data,
-                                   fmt='r-',
-                                   mew=0, markersize=5, label='Confirmed VUCC QSOs ({:d})'.format(number_vucc))
-        lines2 = axb.plot_date(plot_dates, total_ffma_data,
-                               fmt='g:',
-                               mew=0, markersize=5, label='Confirmed FFMA QSOs ({:d})'.format(number_ffma))
+        lines1 = self.ax.plot(plot_dates, total_vucc_data,
+                              color='red', linestyle='-',
+                              mew=0, markersize=5, label='Confirmed VUCC QSOs ({:d})'.format(number_vucc))
+        lines2 = axb.plot(plot_dates, total_ffma_data,
+                          color='green', linestyle=':',
+                          mew=0, markersize=5, label='Confirmed FFMA QSOs ({:d})'.format(number_ffma))
 
         self.ax.tick_params(axis='y', colors=FG, which='major', direction='out', right=False, labelcolor='r')
         step = 50 if limit < 1000 else 100
@@ -332,9 +343,9 @@ class ChallengeBandsByDateChart(BinnedQSOChart):
 
         scale_factor = 50
         y_end = (int(biggest / scale_factor) + 1) * scale_factor
-        plot_dates = date2num(data[0])
 
         super().__init__(bin_data, title, filename, start_date, end_date, 0)
+        plot_dates = BinnedQSOChart.plot_dates
 
         self.ax.set_ylim(0, y_end)
 
@@ -343,10 +354,10 @@ class ChallengeBandsByDateChart(BinnedQSOChart):
         self.ax.set_yticks(yticks)
 
         for i in range(0, len(challenge_bands)):
-            self.ax.plot_date(plot_dates, data[i + 1],
-                              color=colors[i],
-                              fmt=line_styles[i],
-                              mew=0, markersize=5, label='{:s} ({:d})'.format(challenge_bands[i], totals[i]))
+            self.ax.plot(plot_dates, data[i + 1],
+                         color=colors[i],
+                         linestyle=line_styles[i],
+                         mew=0, markersize=5, label='{:s} ({:d})'.format(challenge_bands[i], totals[i]))
 
         legend = self.ax.legend(loc='upper left', numpoints=1, facecolor=BG, edgecolor=FG)
         for text in legend.get_texts():
@@ -359,10 +370,6 @@ class QSOsRateChart(BinnedQSOChart):
     def __init__(self, bin_data, title, filename=None, start_date=None, end_date=None):
         logging.info(f'drawing QSOsRateChart "{title}" to {filename}.')
         # calculate some data before setting up the chart...
-        plot_dates = []
-        data = [[], [], [], []]
-        plot_widths = []
-        maxy = 0
         # Filter data first
         filtered_data = [
             {
@@ -384,9 +391,6 @@ class QSOsRateChart(BinnedQSOChart):
         ]
         plot_widths = np.timedelta64(bin_data.bin_size, 's')
         
-        # Calculate maxy using a generator expression
-        maxy = max((sum(row) for row in zip(*data)), default=0)
-
         super().__init__(bin_data, title, filename, start_date, end_date, 0)
 
         offsets = np.zeros((len(plot_dates)), np.int32)
