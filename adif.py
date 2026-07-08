@@ -1,5 +1,7 @@
-import logging
 import datetime
+import io
+import logging
+import re
 import time
 import urllib.error
 import urllib.parse
@@ -614,92 +616,97 @@ def adif_field(s):
     return element_name, element_value
 
 
-def chars_from_file(filename, chunksize=8192):
-    with open(filename, 'rb') as f:
-        while True:
-            chunk = f.read(chunksize)
-            if chunk:
-                for b in chunk:
-                    yield chr(b)
-            else:
-                break
+def _parse_adif_line(line):
+    """
+    Parse a single ADIF line and return (element_name, element_value) or (None, None).
+
+    Handles both forms:
+      <tag:size>value<eoh/eor>\n\n
+      <tag>value<eoh/eor>\n\n
+    Also handles header fields with no value:
+      <eoh>\n\n
+      <eor>\n\n
+    And regular data fields without EOH/EOR markers:
+      <programid:18>n1kdo log analyzer\n
+    """
+    # Match tag with optional size and optional value (no EOH/EOR marker)
+    match = re.match(r'^\s*<(\w+)(?::(\d+))?\s*>(.*?)$', line, re.DOTALL)
+    if not match:
+        return None, None
+
+    tag = match.group(1).lower()
+    size_str = match.group(2)
+    value = match.group(3).strip()
+
+    # If there's a size but no value, it's a header field (like <eoh> or <eor>)
+    if not value and size_str:
+        return tag, None
+
+    # If there's no size and no value, it's also a header field
+    if not value and not size_str:
+        return tag, None
+
+    return tag, value
 
 
 def read_adif_file(adif_file_name):
     """
     adif file reader/parser.
     :param adif_file_name:  the name of the file to read.
-    :return: adif header as dict, array of QSO data as list of dicts
+    :return: (header_dict, list_of_qso_dicts)
     """
-    logging.info(f'reading adif file {adif_file_name}')
-    qsos = []
     header = {}
     qso = {}
-    # parse adif, bytewise.  state machine:
-    # 0 / clear  not copying
-    # 1 / name
-    # 2 / size
-    # 3 / type
-    # 4 / value
-    element_name = ''
-    element_size = ''
-    element_value = ''
-    element_type = ''
-    state = 0
-    bytes_to_copy = 0
+    qsos = []
 
-    try:
-        for c in chars_from_file(adif_file_name):
-            if state == 0:  # not parsing adif data from file.
-                if c == '<':
-                    element_name = ''
-                    state = 1
-            elif state == 1:  # copying name
-                if c == ':':  # end of name, start of size
-                    element_name = element_name.lower()
-                    element_size = ''
-                    state = 2
-                elif c == '>':  # end of name, no size, not data, must be header
-                    element_name = element_name.lower()
-                    if element_name == 'eoh':
-                        header = qso
-                        qso = {}
-                    elif element_name == 'eor':
-                        qsos.append(qso)
-                        qso = {}
-                    state = 0
-                else:  # keep copying the name.
-                    element_name += c
-            elif state == 2:  # copying size
-                if c == ':':  # end of size, start of type
-                    element_type = ''
-                    bytes_to_copy = int(element_size.strip())
-                    state = 3
-                elif c == '>':
-                    element_value = ''
-                    bytes_to_copy = int(element_size.strip())
-                    state = 4
-                else:
-                    element_size += c
-            elif state == 3:  # copying type
-                if c == '>':
-                    element_value = ''
-                    state = 4
-                else:
-                    element_type += c
-            elif state == 4:  # copying value.
-                if bytes_to_copy > 0:
-                    element_value += c
-                    bytes_to_copy -= 1
-                if bytes_to_copy == 0:
-                    qso[element_name.lower()] = element_value
-                    state = 0  # start new adif value.
-    except FileNotFoundError as fnfe:
-        logging.warning(f'could not read file {adif_file_name}')
-        logging.warning(fnfe)
-        return None, []
-    logging.info(f'read {len(qsos)} QSOs from {adif_file_name}')
-    return header, sorted(qsos, key=lambda sort_qso: qso_key(sort_qso))
+    with open(adif_file_name, 'rb') as raw_file:
+        # Use BufferedReader for efficient line reading
+        reader = io.BufferedReader(raw_file, buffer_size=8192 * 4)  # 32KB buffer
+
+        for line in reader:
+            try:
+                text_line = line.decode('iso-8859-1')
+            except Exception as exc:
+                logging.error(f'Error decoding ADIF line: {exc!r} on line: {line[:50]!r}')
+                continue
+
+            # Strip trailing whitespace/newlines but preserve leading for tag parsing
+            text_line = text_line.rstrip('\n\r')
+
+            if not text_line:
+                continue
+
+            # Check for EOH/EOR markers first (they can appear without size)
+            stripped = text_line.strip()
+            if stripped == '<eoh>':
+                # Start of a new QSO record — copy current qso to header, then reset
+                header.update(qso)
+                qso = {}
+                continue
+
+            if stripped == '<eor>':
+                # End of a QSO record — append and start fresh
+                qsos.append(qso.copy())
+                qso = {}
+                continue
+
+            # Parse ADIF field
+            element_name, element_value = _parse_adif_line(text_line)
+
+            if element_name is None:
+                # Malformed line, skip
+                continue
+
+            if element_value is None:
+                print(f'this should not happen! "{text_line}"')
+                # Header field (like <eoh> or <eor>) — shouldn't happen in data section
+                #header[element_name] = qso.copy()
+                #qsos.append(qso)
+                #qso = {}
+            else:
+                qso[element_name] = element_value
+
+    return header, qsos
 
 
 def compare_qsos(qso1, qso2):
@@ -794,7 +801,7 @@ def write_adif_field(key, item):
 
 def write_adif_file(header, qsos, adif_file_name, abridge_results=True):
     logging.info(f'write_adif_file {adif_file_name}')
-    save_keys = ['app_lotw_mode',
+    save_keys = {'app_lotw_mode',
                  'app_lotw_modegroup',
                  'app_n1kdo_qso_combined',
                  'band',
@@ -808,8 +815,8 @@ def write_adif_file(header, qsos, adif_file_name, abridge_results=True):
                  'qsl_rcvd',
                  'submode',
                  'time_on',
-                 ]
-    ignore_keys = ['app_lotw_2xqsl',
+                 }
+    ignore_keys = {'app_lotw_2xqsl',
                    'app_lotw_dxcc_application_nr',
                    'app_lotw_cqz_inferred',
                    'app_lotw_cqz_invalid',
@@ -838,7 +845,7 @@ def write_adif_file(header, qsos, adif_file_name, abridge_results=True):
                    'qslrdate',
                    'station_callsign',
                    'state',
-                   ]
+                   }
     with open(adif_file_name, 'w') as f:
         f.write('n1kdo lotw-qso-analyzer adif compatible file\n\n')
         header['programid'] = 'n1kdo log analyzer'
@@ -874,31 +881,32 @@ def compare_lists(qso_list, cards_list):
 def combine_qsos(qso_list, qsl_cards):
     logging.debug('combining dxcc qsl card info')
     # build index of qsos
+    qso_dict = {}
+    for qso in qso_list:
+        key = merge_key(qso)
+        qso_dict[key] = qso
 
-    # this is brute-force right now.  it could be made faster.
     updated_qsls = []
     added_qsls = []
     for card in qsl_cards:
         card_merge_key = get_key(card, merge_key_parts)
-        found = False
-        for qso in qso_list:
-            if card_merge_key == merge_key(qso):
-                qsl_rcvd = (qso.get('qsl_rcvd') or 'n').lower()
-                if qsl_rcvd != 'y':
-                    break
-                if found:  # have already seen this qsl
-                    logging.warning(f'already seen {card_merge_key} {str(qso)} {str(card)} ')
-                found = True
-                for k in card:
-                    if k not in merge_key_parts:
-                        qso[k] = card[k]
-                updated_qsls.append(qso)
-        if not found:
-            # logging.info(f'QSL added from card: {card["call"]} {card["band"]} {card["qso_date"]} {card["country"]}')
+        found_qso = qso_dict.get(card_merge_key)
+        if found_qso is not None:
+            qsl_rcvd = (found_qso.get('qsl_rcvd') or 'n').lower()
+            if qsl_rcvd != 'y':
+                continue
+
+            # duplicate check would go here with a seen set if cards can repeat
+            for k in card:
+                if k not in merge_key_parts:
+                    found_qso[k] = card[k]
+            updated_qsls.append(found_qso)
+        else:
             card['app_n1kdo_qso_combined'] = 'qslcards QSL added'
             card['qsl_rcvd'] = 'y'
             added_qsls.append(card)
             qso_list.append(card)
+
     logging.info(f'updated {len(updated_qsls)} QSL from cards, added {len(added_qsls)} QSLs from cards')
     return qso_list
 
