@@ -81,12 +81,12 @@ def main():
         logging.info(f'{len(right_qsos)} qsos narrowed from {right_file}')
 
     # build keys
-    left_keys = []
+    left_keys = set()
     for qso in left_qsos:
-        left_keys.append(qso_key(qso))
-    right_keys = []
+        left_keys.add(qso_key(qso))
+    right_keys = set()
     for qso in right_qsos:
-        right_keys.append(qso_key(qso))
+        right_keys.add(qso_key(qso))
 
     # now start comparing.
     # first make sure that every key in list 1 is in list 2.

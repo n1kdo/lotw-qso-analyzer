@@ -472,12 +472,61 @@ def get_adif_country_name(dxcc):
     return country_tuple[0]
 
 
-def call_lotw(**params):
-    logging.debug('Calling LoTW')
+def parse_adif_data(data):
+    header = {}
     qsos = []
     qso = {}
-    header = {}
-    first_line = True
+    in_header = True
+
+    pos = 0
+    while pos < len(data):
+        start = data.find('<', pos)
+        if start == -1:
+            break
+
+        end = data.find('>', start)
+        if end == -1:
+            break
+
+        tag_content = data[start + 1:end].lower()
+        tag_parts = tag_content.split(':')
+        tag_name = tag_parts[0]
+
+        if tag_name == 'eoh':
+            header.update(qso)
+            qso = {}
+            in_header = False
+            pos = end + 1
+            continue
+        elif tag_name == 'eor':
+            qsos.append(qso)
+            qso = {}
+            in_header = False
+            pos = end + 1
+            continue
+
+        if len(tag_parts) >= 2:
+            try:
+                length = int(tag_parts[1])
+                value = data[end + 1:end + 1 + length]
+                qso[tag_name] = value
+                pos = end + 1 + length
+            except ValueError:
+                pos = end + 1
+        else:
+            pos = end + 1
+
+    if qso:
+        if in_header:
+            header.update(qso)
+        else:
+            qsos.append(qso)
+
+    return header, qsos
+
+
+def call_lotw(**params):
+    logging.debug('Calling LoTW')
     if params.get('url'):
         url = params.pop('url')
     else:
@@ -485,7 +534,7 @@ def call_lotw(**params):
 
     if params.get('filename'):
         adif_file_name = params.pop('filename')
-        adif_file = open(adif_file_name, 'w')
+        adif_file = open(adif_file_name, 'w', encoding='iso-8859-1')
     else:
         adif_file = None
 
@@ -501,38 +550,38 @@ def call_lotw(**params):
         logging.error(q.reason)
         for line in q:
             logging.error(line)
+        if adif_file:
+            adif_file.close()
         return None, None
 
+    body_text = []
+    first_line = True
     for line in response:
         try:
             line = line.decode('iso-8859-1')
         except Exception as inst:
             logging.error(f'problem decoding lotw payload: {line} : {inst}')
+            continue
 
-        line = line.strip()
         if first_line:
             if 'ARRL Logbook of the World' not in line:
                 logging.error(f'Problem fetching data from LoTW: {response}')
+                if adif_file:
+                    adif_file.close()
                 raise Exception('ADIF download failed: ' + line)
             first_line = False
+        
         if adif_file is not None:
-            adif_file.write(line + '\n')
-        if len(line) > 0 and line[0] == '<':
-            item_name, item_value = adif_field(line)
-            if item_value is None or len(item_value) == 0:  # header field.
-                if item_name is not None:
-                    if item_name == 'eor':
-                        qsos.append(qso)
-                        qso = {}
-                    if item_name == 'eoh':
-                        header = qso
-                        qsos = []
-                        qso = {}
-            else:
-                qso[item_name] = item_value
+            adif_file.write(line)
+        
+        body_text.append(line)
+        
     if adif_file is not None:
         adif_file.close()
+        
     t2 = time.time()
+    full_body = "".join(body_text)
+    header, qsos = parse_adif_data(full_body)
     logging.info(f'Fetched {len(qsos)} records in {t1-t0:.3f} sec, parsing took {t2-t1:.3f} sec.')
     return header, sorted(qsos, key=lambda qso: qso_key(qso))
 
@@ -580,7 +629,7 @@ def adif_field(s):
                     element_size = ''
                     state = 2
                 elif c == '>':  # end of name, no size, not data, must be header
-                    state = 0
+                    return element_name.lower(), ""
                 else:  # keep copying the name.
                     element_name += c
             elif state == 2:  # copying size
@@ -610,43 +659,10 @@ def adif_field(s):
                     element_value += c
                     bytes_to_copy -= 1
                 if bytes_to_copy == 0:
-                    state = 0  # start new adif value.
+                    return element_name, element_value
     except Exception as exc:
         logging.error(f'problem parsing adif field: "{s}" : {exc}')
     return element_name, element_value
-
-
-def _parse_adif_line(line):
-    """
-    Parse a single ADIF line and return (element_name, element_value) or (None, None).
-
-    Handles both forms:
-      <tag:size>value<eoh/eor>\n\n
-      <tag>value<eoh/eor>\n\n
-    Also handles header fields with no value:
-      <eoh>\n\n
-      <eor>\n\n
-    And regular data fields without EOH/EOR markers:
-      <programid:18>n1kdo log analyzer\n
-    """
-    # Match tag with optional size and optional value (no EOH/EOR marker)
-    match = re.match(r'^\s*<(\w+)(?::(\d+))?\s*>(.*?)$', line, re.DOTALL)
-    if not match:
-        return None, None
-
-    tag = match.group(1).lower()
-    size_str = match.group(2)
-    value = match.group(3).strip()
-
-    # If there's a size but no value, it's a header field (like <eoh> or <eor>)
-    if not value and size_str:
-        return tag, None
-
-    # If there's no size and no value, it's also a header field
-    if not value and not size_str:
-        return tag, None
-
-    return tag, value
 
 
 def read_adif_file(adif_file_name):
@@ -655,58 +671,14 @@ def read_adif_file(adif_file_name):
     :param adif_file_name:  the name of the file to read.
     :return: (header_dict, list_of_qso_dicts)
     """
-    header = {}
-    qso = {}
-    qsos = []
+    try:
+        with open(adif_file_name, 'rb') as raw_file:
+            data = raw_file.read().decode('iso-8859-1')
+    except Exception as exc:
+        logging.error(f'Error reading ADIF file {adif_file_name}: {exc}')
+        return {}, []
 
-    with open(adif_file_name, 'rb') as raw_file:
-        # Use BufferedReader for efficient line reading
-        reader = io.BufferedReader(raw_file, buffer_size=8192 * 4)  # 32KB buffer
-
-        for line in reader:
-            try:
-                text_line = line.decode('iso-8859-1')
-            except Exception as exc:
-                logging.error(f'Error decoding ADIF line: {exc!r} on line: {line[:50]!r}')
-                continue
-
-            # Strip trailing whitespace/newlines but preserve leading for tag parsing
-            text_line = text_line.rstrip('\n\r')
-
-            if not text_line:
-                continue
-
-            # Check for EOH/EOR markers first (they can appear without size)
-            stripped = text_line.strip()
-            if stripped == '<eoh>':
-                # Start of a new QSO record — copy current qso to header, then reset
-                header.update(qso)
-                qso = {}
-                continue
-
-            if stripped == '<eor>':
-                # End of a QSO record — append and start fresh
-                qsos.append(qso.copy())
-                qso = {}
-                continue
-
-            # Parse ADIF field
-            element_name, element_value = _parse_adif_line(text_line)
-
-            if element_name is None:
-                # Malformed line, skip
-                continue
-
-            if element_value is None:
-                print(f'this should not happen! "{text_line}"')
-                # Header field (like <eoh> or <eor>) — shouldn't happen in data section
-                #header[element_name] = qso.copy()
-                #qsos.append(qso)
-                #qso = {}
-            else:
-                qso[element_name] = element_value
-
-    return header, qsos
+    return parse_adif_data(data)
 
 
 def compare_qsos(qso1, qso2):
@@ -892,10 +864,6 @@ def combine_qsos(qso_list, qsl_cards):
         card_merge_key = get_key(card, merge_key_parts)
         found_qso = qso_dict.get(card_merge_key)
         if found_qso is not None:
-            qsl_rcvd = (found_qso.get('qsl_rcvd') or 'n').lower()
-            if qsl_rcvd != 'y':
-                continue
-
             # duplicate check would go here with a seen set if cards can repeat
             for k in card:
                 if k not in merge_key_parts:

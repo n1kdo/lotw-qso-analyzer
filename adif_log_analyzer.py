@@ -96,7 +96,7 @@ def date_range(start_date, end_date):
 
 
 def convert_qso_date(d):
-    return datetime.datetime.strptime(d, '%Y%m%d').date()
+    return datetime.date(int(d[0:4]), int(d[4:6]), int(d[6:8]))
 
 
 def input1(prompt):
@@ -122,6 +122,7 @@ def crunch_data(qso_list):
     #    print_csv_data = get_yes_no('Show CSV data for Excel [y/N] : ', False)
     logging.debug('crunch_data')
     logging.info('%5d total LoTW QSOs' % len(qso_list))
+    qso_date_cache = {}
     # sort list of QSOs into ascending range by qso_date
     # qso_list.sort(key=lambda q: q['qso_date'])
     for qso in qso_list:
@@ -282,7 +283,12 @@ def crunch_data(qso_list):
             n_challenge += challenge
 
             if qso_date is not None:
-                qdate = convert_qso_date(qso_date)
+                if qso_date in qso_date_cache:
+                    qdate = qso_date_cache[qso_date]
+                else:
+                    qdate = convert_qso_date(qso_date)
+                    qso_date_cache[qso_date] = qdate
+                
                 if qdate in date_records:
                     counts = date_records[qdate]
                 else:

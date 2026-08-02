@@ -19,7 +19,7 @@ def main():
     fn = 'w1cum.adif'
     start_of_contest = datetime.datetime.strptime("20190622180000", '%Y%m%d%H%M%S')
     end_of_contest = datetime.datetime.strptime("20190623180000", '%Y%m%d%H%M%S')
-    qsos = adif.read_adif_file(fn)
+    header, qsos = adif.read_adif_file(fn)
     band_totals = {}
 
     num_qsos = 0

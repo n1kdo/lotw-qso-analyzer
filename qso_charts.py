@@ -135,7 +135,7 @@ class BinnedQSOChart(QsoChart):
             (range_end_date != BinnedQSOChart.plot_dates_end) or
             (BinnedQSOChart.plot_dates is None)):
             BinnedQSOChart.plot_dates_start = range_start_date
-            BinnedQSOChart.plot_dates_start = range_end_date
+            BinnedQSOChart.plot_dates_end = range_end_date
             BinnedQSOChart.plot_dates = date2num([bin_dict['datetime'] for bin_dict in bin_data.data])
 
         self.ax = self.fig.add_subplot(111, facecolor=self.BG)
@@ -522,8 +522,15 @@ class QSOsMap(QsoChart):
         most = 0
         for qso in qsos:
             if start_date is not None:
-                qso_date_string = qso.get('qso_date')
-                qso_date = datetime.datetime.strptime(qso_date_string, '%Y%m%d').date()
+                qso_date = qso.get('app_lotw_qso_timestamp')
+                if qso_date is not None:
+                    qso_date = qso_date.date()
+                else:
+                    qso_date_string = qso.get('qso_date')
+                    if qso_date_string is None:
+                        continue
+                    qso_date = datetime.date(int(qso_date_string[0:4]), int(qso_date_string[4:6]), int(qso_date_string[6:8]))
+                
                 if qso_date < start_date or qso_date >= end_date:
                     continue
             qsl_received = (qso.get('qsl_rcvd') or 'N').lower()
