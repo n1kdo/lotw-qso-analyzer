@@ -32,7 +32,7 @@ def get_file_date_size(filename):
 
 def show_file_info(filename):
     file_timestamp, file_size = get_file_date_size(filename)
-    if filename is None:
+    if file_timestamp is None:
         print('{} does not exist.'.format(filename))
     else:
         print('{} created {}, {} bytes'.format(filename, time.ctime(file_timestamp), file_size))
@@ -60,7 +60,7 @@ def get_password(password):
         return password
     while True:
         password = input('Enter your LoTW Password: ')
-        if password is not None and len(password) > 0:
+        if password is not None and len(password) >= 6:
             return password
 
 
@@ -138,6 +138,7 @@ def main():
 
     last_qso_date = None
     last_qsl_date = None
+    unsaved_changes = False  # set by options 2/5, cleared by a successful save (4) or full download (1)
 
     while True:
         print('---------------------------------------')
@@ -161,55 +162,83 @@ def main():
         print('---------------------------------------')
         choice = menu()
         if choice == '0':
+            if unsaved_changes:
+                print('WARNING: you have unsaved in-memory changes from option 2 (update) and/or option 5 (combine cards).')
+                print('         They are NOT on disk; choose option 4 (Save) before exiting to keep them.')
             exit()
         elif choice == '1':
             password = get_password(password)
-            lotw_header, lotw_qsos = adif.get_lotw_adif(login_callsign, password, callsign, filename=lotw_adif_file_name)
+            new_lotw_header, new_lotw_qsos = adif.get_lotw_adif(login_callsign, password, callsign, filename=lotw_adif_file_name)
+            if new_lotw_qsos is None:
+                logging.error('failed to download LoTW ADIF; in-memory data unchanged')
+            else:
+                lotw_header, lotw_qsos = new_lotw_header, new_lotw_qsos
+                unsaved_changes = False  # full download was written to disk by the fetch
         elif choice == '2':
             if last_qso_date is None:
                 print('Cannot update, no base, download first.')
             else:
                 password = get_password(password)
-                logging.info(f'fetching new QSOs since {last_qso_date}')
+                # LoTW expects YYYY-MM-DD; header values are 'YYYY-MM-DD HH:MM:SS'.
+                qso_since = last_qso_date[:10]
+                qsl_since = (last_qsl_date or '')[:10]
+                logging.info(f'fetching new QSOs since {qso_since}')
                 try:
                     new_lotw_qsos_header, new_lotw_qsos = adif.get_lotw_adif(login_callsign,
                                                                              password,
                                                                              callsign,
                                                                              filename=lotw_adif_new_qsos_file_name,
-                                                                             qso_qsorxsince=last_qso_date)
-                    new_last_qso_date = lotw_header.get('app_lotw_lastqsorx')
-                    logging.info(
-                        'New last QSO Received {}, {} QSO records'.format(new_last_qso_date, len(new_lotw_qsos)))
-                    lotw_header, lotw_qsos = adif.merge(lotw_header, lotw_qsos, new_lotw_qsos)
-                    if new_lotw_qsos_header.get('app_lotw_lastqsorx') is not None:
-                        lotw_header['app_lotw_lastqsorx'] = new_lotw_qsos_header.get('app_lotw_lastqsorx')
+                                                                             qso_qsorxsince=qso_since)
+                    if new_lotw_qsos is None:
+                        logging.error('failed to fetch new QSOs; in-memory data unchanged')
+                    else:
+                        new_last_qso_date = new_lotw_qsos_header.get('app_lotw_lastqsorx')
+                        logging.info(
+                            'New last QSO Received {}, {} QSO records'.format(new_last_qso_date, len(new_lotw_qsos)))
+                        lotw_header, lotw_qsos = adif.merge(lotw_header, lotw_qsos, new_lotw_qsos)
+                        unsaved_changes = True
+                        if new_lotw_qsos_header.get('app_lotw_lastqsorx') is not None:
+                            lotw_header['app_lotw_lastqsorx'] = new_lotw_qsos_header.get('app_lotw_lastqsorx')
 
-                    logging.info(f'fetching new QSLs since {last_qsl_date}')
-                    new_lotw_qsls_header, new_lotw_qsls = adif.call_lotw(login=login_callsign,
-                                                                         password=password,
-                                                                         filename=lotw_adif_new_qsls_file_name,
-                                                                         qso_owncall=callsign,
-                                                                         qso_qsl='yes',
-                                                                         qso_qsldetail='yes',
-                                                                         qso_qslsince=last_qsl_date,
-                                                                         qso_query='1'
-                                                                         )
-                    lotw_header, lotw_qsos = adif.merge(lotw_header, lotw_qsos, new_lotw_qsls)
-                    if new_lotw_qsls_header.get('app_lotw_lastqsl') is not None:
-                        lotw_header['app_lotw_lastqsl'] = new_lotw_qsls_header.get('app_lotw_lastqsl')
+                        logging.info(f'fetching new QSLs since {qsl_since}')
+                        new_lotw_qsls_header, new_lotw_qsls = adif.call_lotw(login=login_callsign,
+                                                                             password=password,
+                                                                             filename=lotw_adif_new_qsls_file_name,
+                                                                             qso_owncall=callsign,
+                                                                             qso_qsl='yes',
+                                                                             qso_qsldetail='yes',
+                                                                             qso_qslsince=qsl_since,
+                                                                             qso_query='1'
+                                                                             )
+                        if new_lotw_qsls is None:
+                            logging.error('failed to fetch new QSLs; in-memory data unchanged')
+                        else:
+                            lotw_header, lotw_qsos = adif.merge(lotw_header, lotw_qsos, new_lotw_qsls)
+                            unsaved_changes = True
+                            if new_lotw_qsls_header.get('app_lotw_lastqsl') is not None:
+                                lotw_header['app_lotw_lastqsl'] = new_lotw_qsls_header.get('app_lotw_lastqsl')
                 except Exception as ex:
-                    print(ex)
+                    logging.error(f'error during LoTW update: {ex}')
 
         elif choice == '3':
             password = get_password(password)
-            dxcc_qsls_header, dxcc_qsl_cards = adif.get_qsl_cards(login_callsign, password, dxcc_qsls_file_name)
+            new_dxcc_header, new_dxcc_cards = adif.get_qsl_cards(login_callsign, password, dxcc_qsls_file_name)
+            if new_dxcc_cards is None:
+                logging.error('failed to download DXCC QSL cards; in-memory data unchanged')
+            else:
+                dxcc_qsls_header, dxcc_qsl_cards = new_dxcc_header, new_dxcc_cards
         elif choice == '4':  # save lotw qsos data
-            adif.write_adif_file(lotw_header, lotw_qsos, lotw_adif_file_name, abridge_results=False)
+            if lotw_header is None:
+                print('nothing to save, download LoTW QSOs first.')
+            else:
+                adif.write_adif_file(lotw_header, lotw_qsos, lotw_adif_file_name, abridge_results=False)
+                unsaved_changes = False
         elif choice == '5':
             if lotw_header is None or dxcc_qsls_header is None:
                 print('need both lotw qsos and dxcc cards in order to merge.  sorry.')
             else:
                 lotw_qsos = adif.combine_qsos(lotw_qsos, dxcc_qsl_cards)
+                unsaved_changes = True
         elif choice == '6':
             adif_log_analyzer.draw_charts(lotw_qsos, callsign)
 

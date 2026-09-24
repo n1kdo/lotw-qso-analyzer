@@ -4,7 +4,6 @@ import numpy as np
 from matplotlib.dates import DateFormatter, YearLocator, MonthLocator, DayLocator, HourLocator, date2num
 
 import matplotlib.pyplot as plt
-import matplotlib.backends.backend_agg as agg
 
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
@@ -40,23 +39,26 @@ class QsoChart:
                       ha='right', va='bottom', transform=self.fig.transFigure)
         return
 
-    def get_figure(self):
-        return self.fig
-
     def save_chart(self):
         if self.filename is not None:
             logging.info(f'writing image file {self.filename}')
-            canvas = agg.FigureCanvasAgg(self.fig)
-            canvas.draw()
             self.fig.savefig(self.filename, facecolor=BG)
         else:
-            plt.show()
+            # Figures are created with a bare plt.Figure (not registered with
+            # pyplot), so there is no figure manager to show them. A filename
+            # is required for the chart to be saved or displayed.
+            logging.warning(f'no filename for chart "{self.title}"; chart not saved')
         plt.close(self.fig)
 
 
 class BinnedQSOData:
 
     def __init__(self, first_datetime, last_datetime):
+        # bin labels are built with utcfromtimestamp(), so the input
+        # datetimes must be timezone-aware (UTC); naive ones would silently
+        # shift every bin by the local timezone offset.
+        if first_datetime.tzinfo is None or last_datetime.tzinfo is None:
+            raise ValueError(f'BinnedQSOData requires timezone-aware (UTC) datetimes, got {first_datetime!r} / {last_datetime!r}')
         self.offset = int(first_datetime.timestamp())
         days = (last_datetime - first_datetime)
         self.num_days = days.days + 1
@@ -95,9 +97,6 @@ class BinnedQSOData:
         ts = ts - self.offset
         bin_num = ts // self.bin_size
         return bin_num
-
-    def get_bin_size(self):
-        return datetime.timedelta(seconds=self.bin_size)
 
 
 class BinnedQSOChart(QsoChart):
@@ -168,24 +167,12 @@ class BinnedQSOChart(QsoChart):
             self.ax.xaxis.set_major_formatter(DateFormatter('%Y'))
         self.ax.set_xlabel('Date', color=FG, size='x-large', weight='bold')
 
-    def get_axis(self):
-        return self.ax
-
-
-def no_zero(n):
-    if n == 0:
-        return None
-    return n
-
 
 class QSOsByDateChart(BinnedQSOChart):
     def __init__(self, bin_data, title, filename=None, start_date=None, end_date=None):
         logging.info(f'drawing QSOsByDateChart "{title}" to {filename}.')
         # calculate some data before setting up the chart...
-        worked = 0
-        confirmed = 0
-        challenge = 0
-        dxcc = 0
+        last_bin = bin_data.data[-1]
         data = [
             [bin_dict['total_dxcc'] for bin_dict in bin_data.data],
             [bin_dict['total_challenge'] - bin_dict['total_dxcc'] for bin_dict in bin_data.data],
@@ -201,7 +188,10 @@ class QSOsByDateChart(BinnedQSOChart):
 
         plot_dates = BinnedQSOChart.plot_dates
         colors = ['#ffff00', '#ff9933', '#cc6600', '#660000']
-        labels = [f'{dxcc} dxcc', f'{challenge} challenge', f'{confirmed} confirmed', f'{worked} logged']
+        labels = [f"{last_bin['total_dxcc']} dxcc",
+                 f"{last_bin['total_challenge']} challenge",
+                 f"{last_bin['total_confirmed']} confirmed",
+                 f"{last_bin['total_worked']} logged"]
 
         self.ax.stackplot(plot_dates, data[0], data[1], data[2], data[3], labels=labels, colors=colors, linewidth=0.2)
 
@@ -349,7 +339,7 @@ class ChallengeBandsByDateChart(BinnedQSOChart):
 
         self.ax.set_ylim(0, y_end)
 
-        step = scale_factor  # 50 if y_end < 1000 else 100
+        step = 50 if y_end < 1000 else 100
         yticks = [i for i in range(0, y_end + 1, step)]
         self.ax.set_yticks(yticks)
 
@@ -520,31 +510,36 @@ class QSOsMap(QsoChart):
         super().__init__(title, filename, tight_layout=False)
         grids = {}
         most = 0
+        unconfirmed_with_grid = 0
         for qso in qsos:
-            if start_date is not None:
-                qso_date = qso.get('app_lotw_qso_timestamp')
-                if qso_date is not None:
-                    qso_date = qso_date.date()
+            if start_date is not None or end_date is not None:
+                qso_timestamp = qso.get('app_lotw_qso_timestamp')
+                if isinstance(qso_timestamp, datetime.datetime):
+                    qso_date = qso_timestamp.date()
                 else:
                     qso_date_string = qso.get('qso_date')
                     if qso_date_string is None:
                         continue
                     qso_date = datetime.date(int(qso_date_string[0:4]), int(qso_date_string[4:6]), int(qso_date_string[6:8]))
-                
-                if qso_date < start_date or qso_date >= end_date:
+                # end_date is inclusive, consistent with the other charts.
+                if (start_date is not None and qso_date < start_date) or \
+                        (end_date is not None and qso_date > end_date):
                     continue
             qsl_received = (qso.get('qsl_rcvd') or 'N').lower()
-            if not confirmed_only or qsl_received != 'n':
+            # consistent with crunch_data: only explicit 'y' counts as confirmed.
+            if not confirmed_only or qsl_received == 'y':
                 grid = qso.get('gridsquare')
                 if grid is not None:
-                    if qsl_received == 'n':
-                        logging.info('QSO has grid but is not confirmed.')
+                    if qsl_received != 'y':
+                        unconfirmed_with_grid += 1
                     grid = grid[0:4].upper()
                     if grid not in grids:
                         grids[grid] = 0
                     grids[grid] += 1
                     if grids[grid] > most:
                         most = grids[grid]
+        if unconfirmed_with_grid:
+            logging.info(f'{unconfirmed_with_grid} QSOs have grids but are not confirmed.')
 
         projection = ccrs.PlateCarree(central_longitude=-110)
         # noinspection PyTypeChecker
@@ -576,13 +571,15 @@ class QSOsMap(QsoChart):
         scale = most / num_colors
         scale = max(scale, 1)
 
+        # batch grid boxes by palette color so add_geometries is called once per color.
+        grid_boxes = {}
         for grid in grids.keys():
             if len(grid) >= 4:
-                box = grid_square_box(grid)
                 count = grids[grid]
-                index = int(count / scale)
-                index = min(index, num_colors - 1)
-                clr = color_palette[index]
-                ax.add_geometries([box], ccrs.PlateCarree(), alpha=0.5, facecolor=clr, edgecolor=clr, linewidth=0)
+                index = min(int(count / scale), num_colors - 1)
+                grid_boxes.setdefault(index, []).append(grid_square_box(grid))
+        for index in sorted(grid_boxes):
+            clr = color_palette[index]
+            ax.add_geometries(grid_boxes[index], ccrs.PlateCarree(), alpha=0.5, facecolor=clr, edgecolor=clr, linewidth=0)
 
         self.save_chart()

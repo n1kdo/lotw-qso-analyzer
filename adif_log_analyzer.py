@@ -482,6 +482,9 @@ def crunch_data(qso_list):
 
 def draw_charts(qso_list, callsign, start_date=None, end_date=None):
     logging.debug('draw_charts')
+    if not qso_list:
+        logging.warning(f'no QSOs to chart for {callsign}; skipping charts')
+        return
     callsign = callsign.upper()
     file_callsign = charts_dir + callsign.replace('/', '-')
     logging.info('crunching QSO data')

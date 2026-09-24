@@ -1,5 +1,3 @@
-import datetime
-import io
 import logging
 import re
 import time
@@ -456,7 +454,9 @@ adif_mode_to_lotw_modegroup_map = {
 }
 
 merge_key_parts = ['qso_date', 'app_lotw_modegroup', 'call', 'band']
-qso_key_parts = ['qso_date', 'time_on', 'call', 'band']
+qso_key_parts = ['qso_date', 'time_on', 'call', 'band', 'app_lotw_modegroup']
+# fallback key for QSOs that lack app_lotw_modegroup (legacy files)
+qso_key_parts_no_mode = ['qso_date', 'time_on', 'call', 'band']
 
 
 def adif_mode_to_lotw_modegroup(adif_mode):
@@ -508,7 +508,8 @@ def parse_adif_data(data):
         if len(tag_parts) >= 2:
             try:
                 length = int(tag_parts[1])
-                value = data[end + 1:end + 1 + length]
+                # ADIF pads values with spaces to the declared length; strip them.
+                value = data[end + 1:end + 1 + length].rstrip()
                 qso[tag_name] = value
                 pos = end + 1 + length
             except ValueError:
@@ -532,56 +533,40 @@ def call_lotw(**params):
     else:
         url = 'https://lotw.arrl.org/lotwuser/lotwreport.adi'
 
-    if params.get('filename'):
-        adif_file_name = params.pop('filename')
-        adif_file = open(adif_file_name, 'w', encoding='iso-8859-1')
-    else:
-        adif_file = None
+    adif_file_name = params.pop('filename', None)
 
     data = urllib.parse.urlencode(params)
     req = urllib.request.Request(url + '?' + data)
+    # NOTE: the debug log below includes the password in cleartext.
+    # This is an accepted risk for this project; do not "fix" without discussion.
     logging.debug(f'calling "{url}?{data}"')
     t0 = time.time()
     try:
-        response = urllib.request.urlopen(req)
-        t1 = time.time()
+        with urllib.request.urlopen(req) as response:
+            body = response.read().decode('iso-8859-1')
     except urllib.error.HTTPError as q:
         logging.error(f'problem with request {url}')
         logging.error(q.reason)
         for line in q:
             logging.error(line)
-        if adif_file:
-            adif_file.close()
         return None, None
+    except urllib.error.URLError as q:
+        # network-level failure (timeout, DNS, connection refused); HTTPError is a subclass and is handled above.
+        logging.error(f'network problem with request {url}: {q.reason}')
+        return None, None
+    t1 = time.time()
 
-    body_text = []
-    first_line = True
-    for line in response:
-        try:
-            line = line.decode('iso-8859-1')
-        except Exception as inst:
-            logging.error(f'problem decoding lotw payload: {line} : {inst}')
-            continue
+    first_line = body.split('\n', 1)[0]
+    if 'ARRL Logbook of the World' not in first_line:
+        logging.error(f'Problem fetching data from LoTW: {body[:200]}')
+        raise Exception('ADIF download failed: ' + first_line)
 
-        if first_line:
-            if 'ARRL Logbook of the World' not in line:
-                logging.error(f'Problem fetching data from LoTW: {response}')
-                if adif_file:
-                    adif_file.close()
-                raise Exception('ADIF download failed: ' + line)
-            first_line = False
-        
-        if adif_file is not None:
-            adif_file.write(line)
-        
-        body_text.append(line)
-        
-    if adif_file is not None:
-        adif_file.close()
-        
+    if adif_file_name is not None:
+        with open(adif_file_name, 'w', encoding='iso-8859-1') as adif_file:
+            adif_file.write(body)
+
     t2 = time.time()
-    full_body = "".join(body_text)
-    header, qsos = parse_adif_data(full_body)
+    header, qsos = parse_adif_data(body)
     logging.info(f'Fetched {len(qsos)} records in {t1-t0:.3f} sec, parsing took {t2-t1:.3f} sec.')
     return header, sorted(qsos, key=lambda qso: qso_key(qso))
 
@@ -604,65 +589,13 @@ def get_qsl_cards(username, password, filename=None):
                                             login=username,
                                             password=password,
                                             ac_acct='1')
+    if qsl_cards is None:
+        logging.error('failed to fetch QSL cards from LoTW')
+        return None, None
     # add 'qsl_rcvd'='y' to be consistent with LoTW.
     for qsl_card in qsl_cards:
         qsl_card['qsl_rcvd'] = 'y'
     return qsl_cards_header, qsl_cards
-
-
-def adif_field(s):
-    state = 0
-    element_name = ''
-    element_size = 0
-    element_type = ''
-    element_value = ''
-    bytes_to_copy = 0
-    try:
-        for c in s:
-            if state == 0:  # initial, look for <
-                if c == '<':
-                    element_name = ''
-                    state = 1
-            elif state == 1:  # copying name
-                if c == ':':  # end of name, start of size
-                    element_name = element_name.lower()
-                    element_size = ''
-                    state = 2
-                elif c == '>':  # end of name, no size, not data, must be header
-                    return element_name.lower(), ""
-                else:  # keep copying the name.
-                    element_name += c
-            elif state == 2:  # copying size
-                if c == ':':  # end of size, start of type
-                    element_type = ''
-                    bytes_to_copy = int(element_size.strip())
-                    state = 3
-                elif c == '>':
-                    element_value = ''
-                    bytes_to_copy = int(element_size.strip())
-                    state = 4
-                elif c.isdigit():
-                    element_size += c
-                else:  # not : or > or a digit, must be something else.
-                    if c in 'NnSs':
-                        element_type += c
-                        state = 3
-                    pass
-            elif state == 3:  # copying type
-                if c == '>':
-                    element_value = ''
-                    state = 4
-                else:
-                    element_type += c
-            elif state == 4:  # copying value.
-                if bytes_to_copy > 0:
-                    element_value += c
-                    bytes_to_copy -= 1
-                if bytes_to_copy == 0:
-                    return element_name, element_value
-    except Exception as exc:
-        logging.error(f'problem parsing adif field: "{s}" : {exc}')
-    return element_name, element_value
 
 
 def read_adif_file(adif_file_name):
@@ -681,14 +614,6 @@ def read_adif_file(adif_file_name):
     return parse_adif_data(data)
 
 
-def compare_qsos(qso1, qso2):
-    fields = ['call', 'band', 'mode', 'qso_date']
-    for field in fields:
-        if qso1.get(field) != qso2.get(field):
-            return False
-    return True
-
-
 def qso_string(qso):
     fields = ['call', 'band', 'mode', 'qso_date', 'time_off']
     data = []
@@ -698,18 +623,12 @@ def qso_string(qso):
     return ' '.join(data)
 
 
-def qso_timestamp(qso):
-    dt = qso.get('qso_date')
-    tm = qso.get('time_off')
-
-    if dt is None or tm is None:
-        return None
-    ts  = datetime.datetime.strptime(dt + tm, '%Y%m%d%H%M%S')
-    return ts
-
-
 def qso_key(qso):
-    return get_key(qso, qso_key_parts)
+    # QSOs missing app_lotw_modegroup key without mode so they don't
+    # collide with the 'missing' sentinel used by get_key.
+    if qso.get('app_lotw_modegroup'):
+        return get_key(qso, qso_key_parts)
+    return get_key(qso, qso_key_parts_no_mode)
 
 
 def merge_key(qso):
@@ -737,6 +656,9 @@ def merge(header, qsos, new_qsos):
         added = False
         key = qso_key(new_qso)
         found_qso = qso_dict.get(key)
+        if found_qso is None and new_qso.get('app_lotw_modegroup'):
+            # stored QSO may predate the mode field; retry without mode.
+            found_qso = qso_dict.get(get_key(new_qso, qso_key_parts_no_mode))
         if found_qso is None:
             qso_dict[key] = new_qso
             qsos.append(new_qso)
@@ -744,12 +666,15 @@ def merge(header, qsos, new_qsos):
             added_count += 1
             logging.debug('added qso: ' + str(new_qso))
         else:
-            for key in new_qso:
-                if key not in qso_key_parts:
-                    if found_qso.get(key) != new_qso.get(key):
+            if new_qso.get('app_lotw_modegroup') and not found_qso.get('app_lotw_modegroup'):
+                # backfill mode on stored QSOs that predate the mode field.
+                found_qso['app_lotw_modegroup'] = new_qso['app_lotw_modegroup']
+            for field, new_value in new_qso.items():
+                if field not in qso_key_parts:
+                    if found_qso.get(field) != new_value:
                         updated = True
-                        found_qso[key] = new_qso.get(key)
-                        logging.debug(f'updating {key} with {new_qso.get(key)}')
+                        found_qso[field] = new_value
+                        logging.debug(f'updating {field} with {new_value}')
             if updated:
                 updated_count += 1
                 logging.debug('updated QSO: ' + str(found_qso))
@@ -818,7 +743,7 @@ def write_adif_file(header, qsos, adif_file_name, abridge_results=True):
                    'station_callsign',
                    'state',
                    }
-    with open(adif_file_name, 'w') as f:
+    with open(adif_file_name, 'w', encoding='iso-8859-1') as f:
         f.write('n1kdo lotw-qso-analyzer adif compatible file\n\n')
         header['programid'] = 'n1kdo log analyzer'
         for k in header:
@@ -838,18 +763,6 @@ def write_adif_file(header, qsos, adif_file_name, abridge_results=True):
     logging.info(f'wrote_adif_file {adif_file_name}')
 
 
-def compare_lists(qso_list, cards_list):
-    qsos = {}
-    for qso in qso_list:
-        key = qso['call'] + '.' + qso['qso_date'] + '.' + qso['band'] + '.' + qso['app_lotw_modegroup']
-        qsos[key] = qso
-
-    for qso in cards_list:
-        key = qso['call'] + '.' + qso['qso_date'] + '.' + qso['band'] + '.' + qso.get('app_lotw_modegroup')
-        if key not in qsos:
-            logging.warning(f"can't find a match for {qso}")
-
-
 def combine_qsos(qso_list, qsl_cards):
     logging.debug('combining dxcc qsl card info')
     # build index of qsos
@@ -858,8 +771,8 @@ def combine_qsos(qso_list, qsl_cards):
         key = merge_key(qso)
         qso_dict[key] = qso
 
-    updated_qsls = []
-    added_qsls = []
+    updated_count = 0
+    added_count = 0
     for card in qsl_cards:
         card_merge_key = get_key(card, merge_key_parts)
         found_qso = qso_dict.get(card_merge_key)
@@ -868,20 +781,12 @@ def combine_qsos(qso_list, qsl_cards):
             for k in card:
                 if k not in merge_key_parts:
                     found_qso[k] = card[k]
-            updated_qsls.append(found_qso)
+            updated_count += 1
         else:
             card['app_n1kdo_qso_combined'] = 'qslcards QSL added'
             card['qsl_rcvd'] = 'y'
-            added_qsls.append(card)
+            added_count += 1
             qso_list.append(card)
 
-    logging.info(f'updated {len(updated_qsls)} QSL from cards, added {len(added_qsls)} QSLs from cards')
+    logging.info(f'updated {updated_count} QSL from cards, added {added_count} QSLs from cards')
     return qso_list
-
-
-def copy_qso_data(qso_from, qso_to, key):
-    data = qso_from.get(key)
-    if data is not None:
-        qso_to[key] = data
-    else:
-        logging.warning(f'no key {key} in {qso_from}')
