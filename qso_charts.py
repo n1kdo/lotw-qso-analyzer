@@ -356,48 +356,64 @@ class ChallengeBandsByDateChart(BinnedQSOChart):
         self.save_chart()
 
 
+# Bar charts draw one artist per bin; beyond this many bins the bars are
+# sub-pixel on a 16-inch figure, so consecutive bins get aggregated instead.
+MAX_BAR_CHART_BINS = 500
+
+
+def coarsen_bins(plot_dates, series, max_bins=MAX_BAR_CHART_BINS):
+    """Aggregate consecutive bins until at most max_bins remain.
+
+    plot_dates: one date per bin, contiguous
+    series: dict of name -> per-bin values
+    returns (plot_dates, {name: np.ndarray}) with the same keys
+    """
+    n = len(plot_dates)
+    if n == 0:
+        return plot_dates, {name: np.asarray(values) for name, values in series.items()}
+    factor = max(1, -(-n // max_bins))  # smallest factor keeping <= max_bins
+    n_new = (n + factor - 1) // factor
+    new_dates = plot_dates[::factor]
+    out = {}
+    for name, values in series.items():
+        a = np.asarray(values, dtype=np.int64)
+        padded = np.zeros(n_new * factor, dtype=np.int64)
+        padded[:n] = a
+        out[name] = padded.reshape(n_new, factor).sum(axis=1)
+    return new_dates, out
+
+
 class QSOsRateChart(BinnedQSOChart):
     def __init__(self, bin_data, title, filename=None, start_date=None, end_date=None):
         logging.info(f'drawing QSOsRateChart "{title}" to {filename}.')
         # calculate some data before setting up the chart...
         # Filter data first
-        filtered_data = [
-            {
-                'date': bin_dict['datetime'].date(),
-                'new_dxcc': bin_dict['new_dxcc'],
-                'challenge': bin_dict['challenge'] - bin_dict['new_dxcc'],
-                'confirmed': bin_dict['confirmed'] - bin_dict['challenge'],
-                'worked': bin_dict['worked'] - bin_dict['confirmed']
-            }
+        filtered = [
+            bin_dict
             for bin_dict in bin_data.data
             if (start_date is None or bin_dict['datetime'].date() >= start_date)
             and (end_date is None or bin_dict['datetime'].date() <= end_date)
         ]
+        plot_dates = [np.datetime64(bin_dict['datetime'].date()) for bin_dict in filtered]
+        series = {
+            'new_dxcc': [bin_dict['new_dxcc'] for bin_dict in filtered],
+            'challenge': [bin_dict['challenge'] - bin_dict['new_dxcc'] for bin_dict in filtered],
+            'confirmed': [bin_dict['confirmed'] - bin_dict['challenge'] for bin_dict in filtered],
+            'worked': [bin_dict['worked'] - bin_dict['confirmed'] for bin_dict in filtered]
+        }
+        plot_dates, series = coarsen_bins(plot_dates, series)
 
-        plot_dates = [np.datetime64(d['date']) for d in filtered_data]
-        data = [
-            [d[key] for d in filtered_data]
-            for key in ['new_dxcc', 'challenge', 'confirmed', 'worked']
-        ]
-        plot_widths = np.timedelta64(bin_data.bin_size, 's')
-        
         super().__init__(bin_data, title, filename, start_date, end_date, 0)
 
-        offsets = np.zeros((len(plot_dates)), np.int32)
         colors = ['#ff3333', '#cccc00', '#009900', '#000099']
-        labels = ['Logged', 'Confirmed', 'Challenge', 'DXCC Entity']
-
-        d = np.array(data[0])
-        self.ax.bar(plot_dates, d, plot_widths, bottom=offsets, color=colors[0], label=labels[3])
-        offsets += d
-        d = np.array(data[1])
-        self.ax.bar(plot_dates, d, plot_widths, bottom=offsets, color=colors[1], label=labels[2])
-        offsets += d
-        d = np.array(data[2])
-        self.ax.bar(plot_dates, d, plot_widths, bottom=offsets, color=colors[2], label=labels[1])
-        offsets += d
-        d = np.array(data[3])
-        self.ax.bar(plot_dates, d, plot_widths, bottom=offsets, color=colors[3], label=labels[0])
+        labels = ['DXCC Entity', 'Challenge', 'Confirmed', 'Logged']
+        # stacked bars: one fill_between (single PolyCollection) per series
+        # instead of one Rectangle patch per bin.
+        offset = np.zeros(len(plot_dates))
+        for key, color, label in zip(('new_dxcc', 'challenge', 'confirmed', 'worked'), colors, labels):
+            values = series[key]
+            self.ax.fill_between(plot_dates, offset, offset + values, step='mid', color=color, label=label)
+            offset += values
 
         legend = self.ax.legend(loc='upper left', numpoints=1, facecolor=BG, edgecolor=FG)
         for text in legend.get_texts():
@@ -413,35 +429,32 @@ class QSOsByBandRateChart(BinnedQSOChart):
         challenge_bands = ['160M', '80M', '40M', '30M', '20M', '17M', '15M', '12M', '10M', '6M']
         colors = ['violet', 'g', 'b', 'c', 'r', '#ffff00', '#ff6600', '#00ff00', '#663300', '#00ffff']
 
-        data = [[], [], [], [], [], [], [], [], [], []]
-        plot_dates = []
-        plot_widths = []
+        filtered = [
+            bin_dict
+            for bin_dict in bin_data.data
+            if (start_date is None or bin_dict['datetime'].date() >= start_date)
+            and (end_date is None or bin_dict['datetime'].date() <= end_date)
+        ]
+        plot_dates = [np.datetime64(bin_dict['datetime'].date()) for bin_dict in filtered]
+        series = {band: [bin_dict[band] for bin_dict in filtered] for band in challenge_bands}
+        plot_dates, series = coarsen_bins(plot_dates, series)
 
-        for bin_dict in bin_data.data:
-            bin_date = bin_dict['datetime'].date()
-            if (start_date is None or bin_date >= start_date) and (end_date is None or bin_date <= end_date):
-                plot_dates.append(np.datetime64(bin_date))
-                plot_widths.append(np.timedelta64(bin_data.bin_size, 's'))
-                for i in range(0, len(challenge_bands)):
-                    band_count = bin_dict[challenge_bands[i]]
-                    data[i].append(band_count)
-
-        maxy = 0
-        for i in range(0, len(data[0])):
-            total = 0
-            for j in range(0, len(challenge_bands)):
-                total += data[j][i]
-            if total > maxy:
-                maxy = total
+        if plot_dates:
+            totals = np.zeros(len(plot_dates))
+            for values in series.values():
+                totals += values
+            maxy = int(totals.max())
+        else:
+            maxy = 0
 
         super().__init__(bin_data, title, filename, start_date, end_date, maxy)
 
-        offset = np.zeros((len(plot_dates)), dtype=np.int32)
+        # stacked bars: one fill_between (single PolyCollection) per band
+        offset = np.zeros(len(plot_dates))
         for i in range(0, len(challenge_bands)):
-            ta = np.array(data[i])
-            self.ax.bar(plot_dates, ta, width=plot_widths, bottom=offset, color=colors[i], label=challenge_bands[i])
-            # ax.bar(dates, ta, bottom=offset, color=colors[i], label=challenge_bands[i])
-            offset += ta
+            values = series[challenge_bands[i]]
+            self.ax.fill_between(plot_dates, offset, offset + values, step='mid', color=colors[i], label=challenge_bands[i])
+            offset += values
 
         legend = self.ax.legend(loc='upper left', numpoints=1, facecolor=BG, edgecolor=FG)
         for text in legend.get_texts():
@@ -455,34 +468,32 @@ class QSOsByModeRateChart(BinnedQSOChart):
         logging.info(f'drawing QSOsByModeRateChart "{title}" to {filename}.')
         # calculate some data before setting up the chart...
         colors = ['r', 'g', 'c', 'b']
-        data = [[], [], [], []]
-        plot_dates = []
-        plot_widths = []
+        filtered = [
+            bin_dict
+            for bin_dict in bin_data.data
+            if (start_date is None or bin_dict['datetime'].date() >= start_date)
+            and (end_date is None or bin_dict['datetime'].date() <= end_date)
+        ]
+        plot_dates = [np.datetime64(bin_dict['datetime'].date()) for bin_dict in filtered]
+        series = {mode: [bin_dict[mode] for bin_dict in filtered] for mode in adif.MODES}
+        plot_dates, series = coarsen_bins(plot_dates, series)
 
-        for bin_dict in bin_data.data:
-            bin_date = bin_dict['datetime'].date()
-            if (start_date is None or bin_date >= start_date) and (end_date is None or bin_date <= end_date):
-                plot_dates.append(np.datetime64(bin_date))
-                plot_widths.append(np.timedelta64(bin_data.bin_size, 's'))
-                for i in range(0, len(adif.MODES)):
-                    mode_count = bin_dict[adif.MODES[i]]
-                    data[i].append(mode_count)
-
-        maxy = 0
-        for i in range(0, len(data[0])):
-            total = 0
-            for j in range(0, len(adif.MODES)):
-                total += data[j][i]
-            if total > maxy:
-                maxy = total
+        if plot_dates:
+            totals = np.zeros(len(plot_dates))
+            for values in series.values():
+                totals += values
+            maxy = int(totals.max())
+        else:
+            maxy = 0
 
         super().__init__(bin_data, title, filename, start_date, end_date, maxy)
 
-        offset = np.zeros((len(plot_dates)), dtype=np.int32)
+        # stacked bars: one fill_between (single PolyCollection) per mode
+        offset = np.zeros(len(plot_dates))
         for i in range(0, len(adif.MODES)):
-            ta = np.array(data[i])
-            self.ax.bar(plot_dates, ta, plot_widths, bottom=offset, color=colors[i], label=adif.MODES[i])
-            offset += ta
+            values = series[adif.MODES[i]]
+            self.ax.fill_between(plot_dates, offset, offset + values, step='mid', color=colors[i], label=adif.MODES[i])
+            offset += values
 
         legend = self.ax.legend(loc='upper left', numpoints=1, facecolor=BG, edgecolor=FG)
         for text in legend.get_texts():

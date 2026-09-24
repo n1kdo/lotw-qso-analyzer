@@ -168,14 +168,14 @@ def crunch_data(qso_list):
     for mode in adif.MODES:
         total_counts[mode] = 0
 
-    unique_calls = {}
+    unique_calls = {}  # call -> number of QSOs
     first_date = None
     last_date = None
     n_worked = 0
     n_confirmed = 0
     n_challenge = 0
 
-    date_records = {}  # key is qso date.  value is dict, first record is summary data.
+    date_worked = {}  # qso date -> worked QSO count
     # initialize data
     key_names = ['challenge', 'confirmed', 'new_dxcc', 'worked', 'ffma', 'vucc']
     for band in adif.BANDS:
@@ -289,27 +289,7 @@ def crunch_data(qso_list):
                     qdate = convert_qso_date(qso_date)
                     qso_date_cache[qso_date] = qdate
                 
-                if qdate in date_records:
-                    counts = date_records[qdate]
-                else:
-                    counts = {'qdate': qdate, 'worked': 0, 'confirmed': 0,
-                              'new_dxcc': 0, 'challenge': 0, 'ffma': 0, 'vucc': 0}
-                    for band in adif.BANDS:
-                        counts[band] = 0
-                        counts['challenge_' + band] = 0
-                    for mode_name in adif.MODES:
-                        counts[mode_name] = 0
-                    date_records[qdate] = counts
-
-                if counts['qdate'] != qdate:
-                    logging.error('ow ow ow!')  # this is bad bad bad
-                counts['worked'] += 1
-                counts['confirmed'] += confirmed
-                counts['new_dxcc'] += new_dxcc
-                counts['challenge'] += challenge
-                counts['ffma'] += ffma
-                counts['vucc'] += vucc
-                counts[mode] += 1
+                date_worked[qdate] = date_worked.get(qdate, 0) + 1
 
                 bin_dict['worked'] += 1
                 bin_dict['confirmed'] += confirmed
@@ -329,8 +309,6 @@ def crunch_data(qso_list):
                 total_counts['vucc'] += vucc
 
                 if qso_band != '':
-                    counts['challenge_' + qso_band] += challenge
-                    counts[qso_band] += 1
                     total_counts['challenge_' + qso_band] += challenge
                     total_counts[qso_band] += 1
                     total_counts[f'{qso_band}_{mode}'] += 1
@@ -342,10 +320,7 @@ def crunch_data(qso_list):
                     first_date = qdate
 
                 call = qso['call']
-                if call not in unique_calls:
-                    unique_calls[call] = [qso]
-                else:
-                    unique_calls[call].append(qso)
+                unique_calls[call] = unique_calls.get(call, 0) + 1
             else:
                 logging.warning("Invalid QSO record has no date ", qso)
 
@@ -379,28 +354,12 @@ def crunch_data(qso_list):
     print(f' TOTAL  {cw:5d}  {data:5d}  {image:5d}  {phone:5d}  {c:5d}')
 
     print()
-    print('%5d unique log dates' % len(date_records))
+    print('%5d unique log dates' % len(date_worked))
     print('first QSO date: ' + first_date.strftime('%Y-%m-%d'))
     print('last QSO date: ' + last_date.strftime('%Y-%m-%d'))
     print()
 
-    # now calculate running totals by date
-    total_worked = 0
-    total_confirmed = 0
-    total_new_dxcc = 0
-    total_new_challenge = 0
-
-    for qdate in sorted(date_records.keys()):
-        counts = date_records[qdate]
-        total_worked += counts['worked']
-        total_confirmed += counts['confirmed']
-        total_new_dxcc += counts['new_dxcc']
-        total_new_challenge += counts['challenge']
-        counts['total_worked'] = total_worked
-        counts['total_confirmed'] = total_confirmed
-        counts['total_new_dxcc'] = total_new_dxcc
-        counts['total_challenge'] = total_new_challenge
-
+    # now calculate running totals by bin
     total_worked = 0
     total_confirmed = 0
     total_dxcc = 0
@@ -435,21 +394,18 @@ def crunch_data(qso_list):
     # top 20 most productive days
     if False:
         number_of_top_days = 20
-        if len(date_records) < number_of_top_days:
-            number_of_top_days = len(date_records)
+        if len(date_worked) < number_of_top_days:
+            number_of_top_days = len(date_worked)
         print()
         print('Top %d days' % number_of_top_days)
         print()
-        most_productive = sorted(list(date_records.values()), key=lambda counts: counts['worked'], reverse=True)
+        most_productive = sorted(date_worked.items(), key=lambda item: item[1], reverse=True)
         for i in range(0, number_of_top_days):
-            print('%2d  %12s %5d' % (i + 1, str(most_productive[i]['qdate']), most_productive[i]['worked']))
+            print('%2d  %12s %5d' % (i + 1, str(most_productive[i][0]), most_productive[i][1]))
 
     # show top calls
     if False:
-        calls_by_qso = []
-        for call, qso_list in unique_calls.items():
-            calls_by_qso.append((call, len(qso_list)))
-        calls_by_qso = sorted(calls_by_qso, key=lambda count: count[1], reverse=True)
+        calls_by_qso = sorted(unique_calls.items(), key=lambda item: item[1], reverse=True)
 
         number_of_top_calls = 50
         print()
@@ -470,13 +426,7 @@ def crunch_data(qso_list):
                 rec['20M'], rec['17M'], rec['15M'], rec['12M'],
                 rec['10M'], rec['6M']))
 
-    # don't want to sort this more than once.
-    # the result is a list of counts dicts
-    results = []
-    for key in sorted(date_records.keys()):
-        # if key >= start_date and key <= end_date:
-        results.append(date_records[key])
-    logging.debug('crunched data for %d log days' % len(results))
+    logging.debug('crunched data for %d log days' % len(date_worked))
     return bin_data
 
 
